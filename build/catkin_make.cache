@@ -1,0 +1,2 @@
+ackermann_msgs:f1_10_sim/race:racecar-simulator/racecar_control:racecar-simulator/racecar_description:racecar-simulator/racecar_gazebo:serial:teste/ackermann_cmd_mux:teste/teste:vesc/vesc:vesc/vesc_ackermann:vesc/vesc_driver:vesc/vesc_msgs
+-DCATKIN_DEVEL_PREFIX=/home/diogo/sims_ws/devel -DCMAKE_INSTALL_PREFIX=/home/diogo/sims_ws/install -G Unix Makefiles
