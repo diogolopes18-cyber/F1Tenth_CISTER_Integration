@@ -25,15 +25,54 @@ car_position=np.empty([1,4])#Creates an array with 3 positions
 
 angle_range=180
 
-velocity = 0.0
+####################################
+#Velocity and steering parameters
+####################################
+velocity = 0.0      #Global variable
 steering_angle = 0.0
 leader_name = 'car1'
 follower_name='car2'
-heading_leader = 0.0
 
-def obtain_position(data):
+######################
+#LEADER PARAMETERS
+######################
+latitude_leader = 0.0
+longitude_leader = 0.0
+heading_leader = 0.0    #Global variable
 
-    #data=Odometry()
+########################
+#FOLLOWER PARAMETERS
+########################
+latitude_follower_2 = 0.0
+longitude_follower_2 = 0.0
+heading_follower_2 = 0.0
+
+
+MAX_STEERING_ANGLE = 1.0
+MAX_SPEED = 2.5
+
+#MACRO
+DEGREE_CONVERSION = 180/(np.pi)
+
+
+
+#Atributing to the variable velocity the value of the msg file in order to be used througout the script
+def car_velocity(msg):
+
+    global velocity
+    global steering_angle
+
+    velocity=msg.velocity
+    steering_angle=msg.angle
+
+
+
+def obtain_position_car2(data):
+
+    global x_position
+    global heading_follower_2
+    
+    msg = AckermannDriveStamped()
 
     quaternion = (					#the orientation is published as a quaternion vector.
 	    data.pose.pose.orientation.x,
@@ -42,7 +81,14 @@ def obtain_position(data):
 	    data.pose.pose.orientation.w)
     euler_tf=tf.transformations.euler_from_quaternion(quaternion)
 
-    #Conversion from quaternion coordinates to euler transforms
+        #Control conditions
+    if(msg.drive.steering_angle > MAX_STEERING_ANGLE):
+        msg.drive.steering_angle == MAX_STEERING_ANGLE
+    
+    if(msg.drive.speed > MAX_SPEED):
+        msg.drive.speed == MAX_SPEED
+
+    x_position=data.pose.pose.position.x
     #roll=euler_tf[0]
     #pitch=euler_tf[1]
     yaw=euler_tf[2]
@@ -55,27 +101,48 @@ def obtain_position(data):
         print("Not a number")
     
     #Converts to degrees
-    heading_leader=m.degrees(yaw)
+    heading_follower_2= yaw * DEGREE_CONVERSION
 
-    print(heading_leader)
+
+def obtain_position_car1(data):
+
+    msg=AckermannDriveStamped()
+
+    global heading_leader
+    global latitude_leader
+    global longitude_leader
+
+    #Control conditions
+    if(msg.drive.steering_angle > MAX_STEERING_ANGLE):
+        msg.drive.steering_angle == MAX_STEERING_ANGLE
     
-    # if(heading_leader>1):
-    #     print("Teste"+'\n')
-    # else:
-    #     print("Not able to collect data")
+    if(msg.drive.speed > MAX_SPEED):
+        msg.drive.speed == MAX_SPEED
     
+    #Latitude and longitude
+    latitude_leader = data.pose.pose.position.x
+    longitude_leader = data.pose.pose.position.y
 
 
 
+#############################################################################################
+#Controls the position between the real position of leader car and the desired position
+#Orientation gives us the desired trajectory towards a target
+#############################################################################################
 
-#Atributing to the variable velocity the value of the msg file in order to be used througout the script
-def car_velocity(msg):
+def direction_control(latitude_leader,longitude_leader,latitude_follower_2,longitude_follower_2):
 
-    global velocity
-    global steering_angle
+    diff_lat = latitude_leader - latitude_follower_2
+    diff_long = longitude_leader - longitude_follower_2
 
-    velocity=msg.velocity
-    steering_angle=msg.angle
+    #Since we have the desired values of latitude and longitude, we know where car1 must be at any time
+    dist_to_leader = m.sqrt((diff_lat**2)+(diff_long**2))
+
+    #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
+    #Read distance to leader from LIDAR
+    #Calculate difference from distance to leader from /car2/odom and LIDAR
+    #Store the position of every distance read by LIDAR in an array in order to use in mapping
+
 
 
 ##########################
@@ -147,9 +214,10 @@ def lidar_meausurements(data):
 def listener():
     print("F1/10 node started")
     rospy.init_node('f1_10', anonymous=True)
-    rospy.Subscriber('/drive_parameters', drive_param, car_velocity)#Subscribes to topic that stores velocity and steering angle
+    #rospy.Subscriber('/drive_parameters', drive_param, car_velocity)#Subscribes to topic that stores velocity and steering angle
     rospy.Subscriber('/scan', LaserScan, lidar_meausurements)
-    rospy.Subscriber('/car1/odom', Odometry, obtain_position)
+    rospy.Subscriber('/car2/odom', Odometry, obtain_position_car2)
+    rospy.Subscriber('/car1/odom', Odometry, obtain_position_car1)
     rospy.spin()
 
 if __name__ == '__main__':
