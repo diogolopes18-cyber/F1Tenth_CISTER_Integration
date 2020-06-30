@@ -41,6 +41,7 @@ follower_name='car2'
 latitude_leader = 0.0
 longitude_leader = 0.0
 heading_leader = 0.0    #Global variable
+speed_leader = 0.0
 
 
 
@@ -50,7 +51,7 @@ heading_leader = 0.0    #Global variable
 latitude_follower_2 = 0.0
 longitude_follower_2 = 0.0
 heading_follower_2 = 0.0
-
+speed_follower_2 = 0.0
 
 
 ###############################
@@ -202,11 +203,11 @@ def lidar_meausurements(data):
     print("Total distance\n", total_distance)#Distance in meters
     time.sleep(0.1)
 
-        # for i in range(len(data.ranges)):
-        #     if(data.ranges[320]<1.0):
-        #         velocity = 1.5
-        #     if(data.ranges[320]>1.2):
-        #         velocity = 2.0
+    # for i in range(len(data.ranges)):
+    #     if(data.ranges[320]<1.0):
+    #         velocity = 1.5
+    #     if(data.ranges[320]>1.2):
+    #         velocity = 2.0
     
     
     #Prints only the front distance of the FOV
@@ -236,8 +237,6 @@ def lidar_meausurements(data):
     #     steering_angle=0.0
     # elif total_distance<1:
     #     velocity=2.0
-
-
 
 ############################################################################
 #General platooning control
