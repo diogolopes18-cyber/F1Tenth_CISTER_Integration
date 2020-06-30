@@ -52,6 +52,8 @@ latitude_follower_2 = 0.0
 longitude_follower_2 = 0.0
 heading_follower_2 = 0.0
 speed_follower_2 = 0.0
+orientation_x_car2 = 0.0
+orientation_y_car2 = 0.0
 
 
 ###############################
@@ -63,6 +65,11 @@ MAX_SPEED = 2.5
 #CONVERT RADIAN TO DEGREES
 DEGREE_CONVERSION = 180/(np.pi)
 
+################
+#TIME FLAGS
+################
+
+direction_control_time_flag = 0.0
 
 
 #Atributing to the variable velocity the value of the msg file in order to be used througout the script
@@ -98,6 +105,7 @@ def car1_info(data):
     latitude_leader = data.pose.pose.position.x
     longitude_leader = data.pose.pose.position.y
 
+    platooning_control()
 
 
 #######################################################
@@ -107,6 +115,8 @@ def car1_info(data):
 def car2_info(data):
 
     global heading_follower_2
+    global orientation_x_car2
+    global orientation_y_car2
     
     msg = AckermannDriveStamped()
 
@@ -128,6 +138,10 @@ def car2_info(data):
     #roll=euler_tf[0]
     #pitch=euler_tf[1]
     yaw=euler_tf[2]
+
+    #Orientation for car2
+    orientation_x_car2 = data.pose.pose.orientation.x
+    orientation_y_car2 = data.pose.pose.orientation.y
 
     #Checks for not valid number formats
     try:
@@ -152,14 +166,26 @@ def direction_control():
     global latitude_follower_2
     global longitude_leader
     global longitude_follower_2
+    global orientation_x_car2
+    global orientation_y_car2
 
-    diff_lat = latitude_leader - latitude_follower_2
-    diff_long = longitude_leader - longitude_follower_2
 
-    #Since we have the desired values of latitude and longitude, we know where car1 must be at any time
-    dist_to_leader = m.sqrt((diff_lat**2)+(diff_long**2))
-    print("Distance to leader:", dist_to_leader)
+    program_time = time.time()
 
+    time_delay = program_time - direction_control_time_flag
+
+    #If the simulation is started, then the differences between longitude and latitude will be calculated
+    if(time_delay >= 0.1):
+        diff_lat = latitude_leader - latitude_follower_2
+        diff_long = longitude_leader - longitude_follower_2
+
+        #Since we have the desired values of latitude and longitude, we know where car1 must be at any time
+        dist_to_leader = m.sqrt((diff_lat**2)+(diff_long**2))
+        print("Distance to leader:", dist_to_leader)
+
+        #Make car2 orientation to be car1 position
+        orientation_x_car2 = latitude_leader
+        orientation_y_car2 = longitude_leader
 
     #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
     #Read distance to leader from LIDAR
@@ -246,6 +272,8 @@ def lidar_meausurements(data):
 
 def platooning_control():
     car_control_msg = AckermannDriveStamped()
+
+    car_control_msg.drive.steering_angle = direction_control()
 
 def listener():
     print("F1/10 node started")
