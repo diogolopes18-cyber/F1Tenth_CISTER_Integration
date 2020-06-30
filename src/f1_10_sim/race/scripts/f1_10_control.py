@@ -67,7 +67,7 @@ def car_velocity(msg):
 
 
 
-def obtain_position_car2(data):
+def car2_info(data):
 
     global x_position
     global heading_follower_2
@@ -104,7 +104,7 @@ def obtain_position_car2(data):
     heading_follower_2= yaw * DEGREE_CONVERSION
 
 
-def obtain_position_car1(data):
+def car1_info(data):
 
     msg=AckermannDriveStamped()
 
@@ -125,10 +125,11 @@ def obtain_position_car1(data):
 
 
 
-#############################################################################################
+################################################################################################################
 #Controls the position between the real position of leader car and the desired position
 #Orientation gives us the desired trajectory towards a target
-#############################################################################################
+#In order to have a functioning platoon, we must target the orientation of car2 towards the postion of car1
+################################################################################################################
 
 def direction_control(latitude_leader,longitude_leader,latitude_follower_2,longitude_follower_2):
 
@@ -142,6 +143,8 @@ def direction_control(latitude_leader,longitude_leader,latitude_follower_2,longi
     #Read distance to leader from LIDAR
     #Calculate difference from distance to leader from /car2/odom and LIDAR
     #Store the position of every distance read by LIDAR in an array in order to use in mapping
+
+
 
 
 
@@ -177,6 +180,12 @@ def lidar_meausurements(data):
     total_distance=m.sqrt((lidar_coordinates_x**2)+(lidar_coordinates_y**2))#Calculates distance through hypotenuse
     print("Total distance\n", total_distance)#Distance in meters
     time.sleep(0.5)
+
+        for i in range(len(data.ranges)):
+            if(data.ranges[320]<1.0):
+                velocity = 1.5
+            if(data.ranges[320]>1.2):
+                velocity = 2.0
     
     
     #Prints only the front distance of the FOV
@@ -209,15 +218,13 @@ def lidar_meausurements(data):
 
 
 
-
-
 def listener():
     print("F1/10 node started")
     rospy.init_node('f1_10', anonymous=True)
     #rospy.Subscriber('/drive_parameters', drive_param, car_velocity)#Subscribes to topic that stores velocity and steering angle
     rospy.Subscriber('/scan', LaserScan, lidar_meausurements)
-    rospy.Subscriber('/car2/odom', Odometry, obtain_position_car2)
-    rospy.Subscriber('/car1/odom', Odometry, obtain_position_car1)
+    rospy.Subscriber('/car2/odom', Odometry, car2_info)
+    rospy.Subscriber('/car1/odom', Odometry, car1_info)
     rospy.spin()
 
 if __name__ == '__main__':
