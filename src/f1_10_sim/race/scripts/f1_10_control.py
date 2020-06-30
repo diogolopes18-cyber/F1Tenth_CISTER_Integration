@@ -245,12 +245,12 @@ def lidar_meausurements(data):
 ############################################################################
 
 def platooning_control():
-
+    car_control_msg = AckermannDriveStamped()
 
 def listener():
     print("F1/10 node started")
     rospy.init_node('f1_10', anonymous=True)
-    #rospy.Subscriber('/drive_parameters', drive_param, car_velocity)#Subscribes to topic that stores velocity and steering angle
+    rospy.Subscriber('/drive_parameters', drive_param, car_velocity)#Subscribes to topic that stores velocity and steering angle
     rospy.Subscriber('/scan', LaserScan, lidar_meausurements)
     rospy.Subscriber('/car2/odom', Odometry, car2_info)
     rospy.Subscriber('/car1/odom', Odometry, car1_info)
