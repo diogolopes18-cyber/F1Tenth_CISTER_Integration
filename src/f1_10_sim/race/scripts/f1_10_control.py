@@ -66,6 +66,34 @@ def car_velocity(msg):
     steering_angle=msg.angle
 
 
+#######################################################
+#Obtains position data for car1
+#######################################################
+
+def car1_info(data):
+    
+    msg=AckermannDriveStamped()
+
+    global heading_leader
+    global latitude_leader
+    global longitude_leader
+
+    #Control conditions
+    if(msg.drive.steering_angle > MAX_STEERING_ANGLE):
+        msg.drive.steering_angle == MAX_STEERING_ANGLE
+    
+    if(msg.drive.speed > MAX_SPEED):
+        msg.drive.speed == MAX_SPEED
+    
+    #Latitude and longitude
+    latitude_leader = data.pose.pose.position.x
+    longitude_leader = data.pose.pose.position.y
+
+
+
+#######################################################
+#Obtains position and orientation data for car2
+#######################################################
 
 def car2_info(data):
 
@@ -104,27 +132,6 @@ def car2_info(data):
     heading_follower_2= yaw * DEGREE_CONVERSION
 
 
-def car1_info(data):
-
-    msg=AckermannDriveStamped()
-
-    global heading_leader
-    global latitude_leader
-    global longitude_leader
-
-    #Control conditions
-    if(msg.drive.steering_angle > MAX_STEERING_ANGLE):
-        msg.drive.steering_angle == MAX_STEERING_ANGLE
-    
-    if(msg.drive.speed > MAX_SPEED):
-        msg.drive.speed == MAX_SPEED
-    
-    #Latitude and longitude
-    latitude_leader = data.pose.pose.position.x
-    longitude_leader = data.pose.pose.position.y
-
-
-
 ################################################################################################################
 #Controls the position between the real position of leader car and the desired position
 #Orientation gives us the desired trajectory towards a target
@@ -138,6 +145,7 @@ def direction_control(latitude_leader,longitude_leader,latitude_follower_2,longi
 
     #Since we have the desired values of latitude and longitude, we know where car1 must be at any time
     dist_to_leader = m.sqrt((diff_lat**2)+(diff_long**2))
+    print("Distance to leader:", dist_to_leader)
 
     #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
     #Read distance to leader from LIDAR
