@@ -33,12 +33,16 @@ steering_angle = 0.0
 leader_name = 'car1'
 follower_name='car2'
 
+
+
 ######################
 #LEADER PARAMETERS
 ######################
 latitude_leader = 0.0
 longitude_leader = 0.0
 heading_leader = 0.0    #Global variable
+
+
 
 ########################
 #FOLLOWER PARAMETERS
@@ -48,10 +52,14 @@ longitude_follower_2 = 0.0
 heading_follower_2 = 0.0
 
 
+
+###############################
+#SPEED AND DIRECTION CONTROL
+###############################
 MAX_STEERING_ANGLE = 1.0
 MAX_SPEED = 2.5
 
-#MACRO
+#CONVERT RADIAN TO DEGREES
 DEGREE_CONVERSION = 180/(np.pi)
 
 
@@ -97,7 +105,6 @@ def car1_info(data):
 
 def car2_info(data):
 
-    global x_position
     global heading_follower_2
     
     msg = AckermannDriveStamped()
@@ -138,7 +145,12 @@ def car2_info(data):
 #In order to have a functioning platoon, we must target the orientation of car2 towards the postion of car1
 ################################################################################################################
 
-def direction_control(latitude_leader,longitude_leader,latitude_follower_2,longitude_follower_2):
+def direction_control():
+
+    global latitude_leader
+    global latitude_follower_2
+    global longitude_leader
+    global longitude_follower_2
 
     diff_lat = latitude_leader - latitude_follower_2
     diff_long = longitude_leader - longitude_follower_2
@@ -146,6 +158,7 @@ def direction_control(latitude_leader,longitude_leader,latitude_follower_2,longi
     #Since we have the desired values of latitude and longitude, we know where car1 must be at any time
     dist_to_leader = m.sqrt((diff_lat**2)+(diff_long**2))
     print("Distance to leader:", dist_to_leader)
+
 
     #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
     #Read distance to leader from LIDAR
@@ -187,13 +200,13 @@ def lidar_meausurements(data):
     #Calculates distance in all FOV 
     total_distance=m.sqrt((lidar_coordinates_x**2)+(lidar_coordinates_y**2))#Calculates distance through hypotenuse
     print("Total distance\n", total_distance)#Distance in meters
-    time.sleep(0.5)
+    time.sleep(0.1)
 
-        for i in range(len(data.ranges)):
-            if(data.ranges[320]<1.0):
-                velocity = 1.5
-            if(data.ranges[320]>1.2):
-                velocity = 2.0
+        # for i in range(len(data.ranges)):
+        #     if(data.ranges[320]<1.0):
+        #         velocity = 1.5
+        #     if(data.ranges[320]>1.2):
+        #         velocity = 2.0
     
     
     #Prints only the front distance of the FOV
@@ -218,12 +231,21 @@ def lidar_meausurements(data):
     except:
         print("Not able to write to file")
     
-    if(total_distance>1.2 or total_distance<2.0):
-        velocity=1.5
-        steering_angle=0.0
-    elif total_distance<1:
-        velocity=2.0
+    # if(total_distance>1.2 or total_distance<2.0):
+    #     velocity=1.5
+    #     steering_angle=0.0
+    # elif total_distance<1:
+    #     velocity=2.0
 
+
+
+############################################################################
+#General platooning control
+#Receives data from steering angle and direction and makes corrections
+#NEED TO ADD PID CONTROL
+############################################################################
+
+def platooning_control():
 
 
 def listener():
