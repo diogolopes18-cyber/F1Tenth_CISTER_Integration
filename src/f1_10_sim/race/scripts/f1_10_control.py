@@ -188,7 +188,8 @@ def direction_control():
         orientation_y_car2 = longitude_leader
 
         if(dist_to_leader < 0.5):#Checks distance in order to stop, if leader stops as well
-            speed_follower_2 = 0.0
+            if(speed_leader == 0.0 or speed_leader < 0.2):#If the leader velocity is zero or very low, the follower will stop as well
+                speed_follower_2 = 0.0
 
     #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
     #Read distance to leader from LIDAR
