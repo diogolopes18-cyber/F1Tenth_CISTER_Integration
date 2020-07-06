@@ -168,6 +168,12 @@ def direction_control():
     global longitude_follower_2
     global orientation_x_car2
     global orientation_y_car2
+    global velocity
+    global speed_follower_2
+    global speed_leader
+
+    speed_follower_2 = velocity#Stores the value of velocity to car2
+    speed_leader = velocity
 
 
     program_time = time.time()
