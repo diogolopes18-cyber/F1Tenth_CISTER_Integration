@@ -10,7 +10,7 @@ Consult http://wiki.ros.org/melodic/Installation/Ubuntu for installing ROS Melod
 
 If you already have ROS Melodic installed you should install the following dependencies:
 
-**Installation**
+**1. Installation**
 
 Once you've installed ROS Melodic you need to create a workspace
 
@@ -19,7 +19,7 @@ $ cd ~/<location>
 $ mkdir <directory_name>/src
 ```
 
-Install repositories
+**A. Install repositories**
 
 ```
 1. $ cd sims_ws/src
@@ -31,7 +31,7 @@ Install repositories
 7. $ git clone https://github.com/mlab-upenn/f1_10_sim.git
 ```
 
-Initialize your workspace
+**B. Initialize your workspace**
 
 `$ catkin_init_workspace`
 
@@ -50,6 +50,8 @@ In the case you don't proceed this step, you need to source the directory every 
 $ echo "source ~/Desktop/<directory_name>/devel/setup.bash" >> ~/.bashrc
 $ source ~/.bashrc
 ```
+
+**2. Simulation**
 
 Now, you should be able to run the simulation, in order to do it you must execute the following steps
 
