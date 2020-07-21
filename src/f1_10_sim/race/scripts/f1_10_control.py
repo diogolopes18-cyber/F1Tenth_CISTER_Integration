@@ -119,6 +119,8 @@ def car2_info(data):
     global heading_follower_2
     global orientation_x_car2
     global orientation_y_car2
+    global latitude_follower_2
+    global longitude_follower_2
     
     msg = AckermannDriveStamped()
 
@@ -140,6 +142,10 @@ def car2_info(data):
     #roll=euler_tf[0]
     #pitch=euler_tf[1]
     yaw=euler_tf[2]
+
+    #Longitude and Latitude
+    latitude_follower_2 = data.pose.pose.position.x
+    longitude_follower_2 = data.pose.pose.position.y
 
     #Orientation for car2
     orientation_x_car2 = data.pose.pose.orientation.x
@@ -199,8 +205,8 @@ def direction_control():
             if(speed_leader == 0.0 or speed_leader < 0.2):#If the leader velocity is zero or very low, the follower will stop as well
                 speed_follower_2 = 0.0
 
-        plt.plot([program_time],[dist_to_leader])
-        plt.show()
+        # plt.plot([program_time],[dist_to_leader])
+        # plt.show()
     #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
     #Read distance to leader from LIDAR
     #Calculate difference from distance to leader from /car2/odom and LIDAR
@@ -259,6 +265,7 @@ def lidar_meausurements(data):
     if(m.isinf(total_distance) or m.isnan(total_distance)):
         return absurde_value
 
+    
     try:
         with open('distance_file.txt','w') as distance_file:
             distance_file.write(str(total_distance))#Writes distance into file
