@@ -13,12 +13,22 @@ from nav_msgs.msg import Odometry
 from gazebo_msgs.msg import LinkStates
 from geometry_msgs.msg import Quaternion
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import tf
 import math as m
 import time
+import datetime as dt
 
 car_position=np.empty([1,4])#Creates an array with 3 positions
 #distance_file=open('distance_file.txt','w')#Writes the positions obtained from LIDAR in a file
+
+###########
+#PLOT
+###########
+fig = plt.figure()
+ax = fig.add_subplot(1, 1, 1)
+xs = []
+ys = []
 
 ############################################
 # PID CONTROL USING ZIEGLER NICHOLS METHOD
@@ -82,7 +92,6 @@ def car_velocity(msg):
 
     velocity=msg.velocity
     steering_angle=msg.angle
-
 
 #######################################################
 #Obtains position data for car1
@@ -205,14 +214,37 @@ def direction_control():
             if(speed_leader == 0.0 or speed_leader < 0.2):#If the leader velocity is zero or very low, the follower will stop as well
                 speed_follower_2 = 0.0
 
-        # plt.plot([program_time],[dist_to_leader])
-        # plt.show()
+        plt.plot([program_time,dist_to_leader])
+        plt.show()
     #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
     #Read distance to leader from LIDAR
     #Calculate difference from distance to leader from /car2/odom and LIDAR
     #Store the position of every distance read by LIDAR in an array in order to use in mapping
 
 
+def animate(i, xs, ys):
+
+    # Add x and y to lists
+    xs.append(dt.datetime.now().strftime('%H:%M:%S.%f'))
+    ys.append(velocity)
+
+    # Limit x and y lists to 20 items
+    xs = xs[-20:]
+    ys = ys[-20:]
+
+    # Draw x and y lists
+    ax.clear()
+    ax.plot(xs, ys)
+
+    # Format plot
+    plt.xticks(rotation=45, ha='right')
+    plt.subplots_adjust(bottom=0.30)
+    plt.title('Distance to leader over time')
+    plt.ylabel('Distance(m)')
+
+# Set up plot to call animate() function periodically
+ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), interval=1000)
+plt.show()
 
 
 
