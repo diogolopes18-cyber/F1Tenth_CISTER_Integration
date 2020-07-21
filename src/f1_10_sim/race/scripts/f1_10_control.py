@@ -13,8 +13,6 @@ from nav_msgs.msg import Odometry
 from gazebo_msgs.msg import LinkStates
 from geometry_msgs.msg import Quaternion
 import matplotlib.pyplot as plt
-import signal
-import sys
 import tf
 import math as m
 import time
@@ -73,6 +71,7 @@ DEGREE_CONVERSION = 180/(np.pi)
 ################
 
 direction_control_time_flag = 0.0
+MIN_TIME_STAMP = 0.1
 
 
 #Atributing to the variable velocity the value of the msg file in order to be used througout the script
@@ -157,11 +156,6 @@ def car2_info(data):
     heading_follower_2= yaw * DEGREE_CONVERSION
 
 
-
-def signal_handler(sig,frame):
-    print("You are quitting the program")
-    sys.exit(0)
-
 ################################################################################################################
 #Controls the position between the real position of leader car and the desired position
 #Orientation gives us the desired trajectory towards a target
@@ -189,7 +183,7 @@ def direction_control():
     time_delay = program_time - direction_control_time_flag
 
     #If the simulation is started, then the differences between longitude and latitude will be calculated
-    if(time_delay >= 0.1):
+    if(time_delay >= MIN_TIME_STAMP):
         diff_lat = latitude_leader - latitude_follower_2
         diff_long = longitude_leader - longitude_follower_2
 
@@ -205,7 +199,8 @@ def direction_control():
             if(speed_leader == 0.0 or speed_leader < 0.2):#If the leader velocity is zero or very low, the follower will stop as well
                 speed_follower_2 = 0.0
 
-        signal.signal(signal.SIGINT,signal_handler)
+        plt.plot([program_time],[dist_to_leader])
+        plt.show()
     #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
     #Read distance to leader from LIDAR
     #Calculate difference from distance to leader from /car2/odom and LIDAR
