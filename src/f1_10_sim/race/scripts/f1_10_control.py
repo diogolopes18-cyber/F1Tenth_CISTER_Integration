@@ -12,6 +12,9 @@ from geometry_msgs.msg import Pose, Twist, Transform, TransformStamped
 from nav_msgs.msg import Odometry
 from gazebo_msgs.msg import LinkStates
 from geometry_msgs.msg import Quaternion
+import matplotlib.pyplot as plt
+import signal
+import sys
 import tf
 import math as m
 import time
@@ -154,6 +157,11 @@ def car2_info(data):
     heading_follower_2= yaw * DEGREE_CONVERSION
 
 
+
+def signal_handler(sig,frame):
+    print("You are quitting the program")
+    sys.exit(0)
+
 ################################################################################################################
 #Controls the position between the real position of leader car and the desired position
 #Orientation gives us the desired trajectory towards a target
@@ -197,6 +205,7 @@ def direction_control():
             if(speed_leader == 0.0 or speed_leader < 0.2):#If the leader velocity is zero or very low, the follower will stop as well
                 speed_follower_2 = 0.0
 
+        signal.signal(signal.SIGINT,signal_handler)
     #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
     #Read distance to leader from LIDAR
     #Calculate difference from distance to leader from /car2/odom and LIDAR
@@ -238,13 +247,6 @@ def lidar_meausurements(data):
     total_distance=m.sqrt((lidar_coordinates_x**2)+(lidar_coordinates_y**2))#Calculates distance through hypotenuse
     print("Total distance\n", total_distance)#Distance in meters
     time.sleep(0.1)
-
-    # for i in range(len(data.ranges)):
-    #     if(data.ranges[320]<1.0):
-    #         velocity = 1.5
-    #     if(data.ranges[320]>1.2):
-    #         velocity = 2.0
-    
     
     #Prints only the front distance of the FOV
     #print(data.ranges[360])
