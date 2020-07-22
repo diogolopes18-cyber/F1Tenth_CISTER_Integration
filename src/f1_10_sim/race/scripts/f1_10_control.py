@@ -22,6 +22,8 @@ import datetime as dt
 car_position=np.empty([1,4])#Creates an array with 3 positions
 #distance_file=open('distance_file.txt','w')#Writes the positions obtained from LIDAR in a file
 
+LIDAR_ODOMETRY_ERROR = 0
+
 ###########
 #PLOT
 ###########
@@ -73,6 +75,9 @@ latitude_compare_car_2 = 0.0
 longitude_compare_car_2 = 0.0
 orientation_compare_x_car_2 = 0.0
 orientation_compare_y_car_2 = 0.0
+latitude_leader_compare = 0.0
+longitude_leader_compare = 0.0
+corrected_distance_lidar = 0.0  #Distance with the corrected value after comparison between LiDAR and Gazebo odometry
 
 #######################
 #LiDAR PARAMETERS
@@ -330,6 +335,28 @@ def lidar_meausurements(data):
     #     steering_angle=0.0
     # elif total_distance<1:
     #     velocity=2.0
+
+
+#####################################################################
+#Compare the latitude and longitude from LiDAR and Gazebo odometry
+#####################################################################
+def compare_meausures():
+
+    global lidar_coordinates_x
+    global lidar_coordinates_y
+    global latitude_leader
+    global longitude_leader
+
+    #Calculate difference between meausurements from LiDAR and Gazebo
+    latitude_leader_compare = lidar_coordinates_x - latitude_leader
+    longitude_leader_compare = lidar_coordinates_y - longitude_leader
+
+    #Check for errors and values that aren't numbers
+    # if(m.isnan(latitude_leader_compare) or m.isnan(longitude_leader_compare)):
+    #     return LIDAR_ODOMETRY_ERROR
+    # else:
+    #     latitude_leader = latitude_leader_compare
+    #     longitude_leader = longitude_leader_compare
 
 
 ############################################################################
