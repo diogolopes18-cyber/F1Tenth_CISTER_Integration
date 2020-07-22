@@ -66,6 +66,13 @@ speed_follower_2 = 0.0
 orientation_x_car2 = 0.0
 orientation_y_car2 = 0.0
 
+########################################################################################
+#CORRECTED PARAMETERS BASED ON THE COMPARISON ON THE ODOMETRY FROM LiDAR AND GAZEBO
+########################################################################################
+latitude_compare_car_2 = 0.0
+longitude_compare_car_2 = 0.0
+orientation_compare_x_car_2 = 0.0
+orientation_compare_y_car_2 = 0.0
 
 ###############################
 #SPEED AND DIRECTION CONTROL
@@ -92,6 +99,32 @@ def car_velocity(msg):
 
     velocity=msg.velocity
     steering_angle=msg.angle
+
+
+
+#################################################
+#Traces plot for distance in time in real time
+#################################################
+
+def animate(i, xs, ys):
+
+    # Add x and y to lists
+    xs.append(dt.datetime.now().strftime('%H:%M:%S.%f'))
+    ys.append(velocity)
+
+    # Limit x and y lists to 20 items
+    xs = xs[-20:]
+    ys = ys[-20:]
+
+    # Draw x and y lists
+    ax.clear()
+    ax.plot(xs, ys)
+
+    # Format plot
+    plt.xticks(rotation=45, ha='right')
+    plt.subplots_adjust(bottom=0.30)
+    plt.title('Distance to leader over time')
+    plt.ylabel('Distance(m)')
 
 #######################################################
 #Obtains position data for car1
@@ -222,30 +255,10 @@ def direction_control():
     #Store the position of every distance read by LIDAR in an array in order to use in mapping
 
 
-def animate(i, xs, ys):
-
-    # Add x and y to lists
-    xs.append(dt.datetime.now().strftime('%H:%M:%S.%f'))
-    ys.append(velocity)
-
-    # Limit x and y lists to 20 items
-    xs = xs[-20:]
-    ys = ys[-20:]
-
-    # Draw x and y lists
-    ax.clear()
-    ax.plot(xs, ys)
-
-    # Format plot
-    plt.xticks(rotation=45, ha='right')
-    plt.subplots_adjust(bottom=0.30)
-    plt.title('Distance to leader over time')
-    plt.ylabel('Distance(m)')
 
 # Set up plot to call animate() function periodically
 ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), interval=1000)
 plt.show()
-
 
 
 ##########################
@@ -309,6 +322,18 @@ def lidar_meausurements(data):
     #     steering_angle=0.0
     # elif total_distance<1:
     #     velocity=2.0
+
+
+
+
+
+
+def compare_meausures():
+
+
+
+
+
 
 ############################################################################
 #General platooning control
