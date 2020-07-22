@@ -74,6 +74,14 @@ longitude_compare_car_2 = 0.0
 orientation_compare_x_car_2 = 0.0
 orientation_compare_y_car_2 = 0.0
 
+#######################
+#LiDAR PARAMETERS
+#######################
+lidar_coordinates_x = 0.0
+lidar_coordinates_y = 0.0
+measures_lidar = 0.0
+total_distance = 0.0
+
 ###############################
 #SPEED AND DIRECTION CONTROL
 ###############################
@@ -329,7 +337,11 @@ def lidar_meausurements(data):
 
 
 def compare_meausures():
-
+    
+    global latitude_compare_car_2
+    global longitude_compare_car_2
+    global orientation_compare_x_car_2
+    global orientation_compare_y_car_2
 
 
 
