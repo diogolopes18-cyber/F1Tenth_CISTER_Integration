@@ -352,11 +352,11 @@ def compare_meausures():
     longitude_leader_compare = lidar_coordinates_y - longitude_leader
 
     #Check for errors and values that aren't numbers
-    # if(m.isnan(latitude_leader_compare) or m.isnan(longitude_leader_compare)):
-    #     return LIDAR_ODOMETRY_ERROR
-    # else:
-    #     latitude_leader = latitude_leader_compare
-    #     longitude_leader = longitude_leader_compare
+    if(m.isnan(latitude_leader_compare) or m.isnan(longitude_leader_compare)):
+        return LIDAR_ODOMETRY_ERROR
+    else:
+        latitude_leader = latitude_leader_compare
+        longitude_leader = longitude_leader_compare
 
 
 ############################################################################
