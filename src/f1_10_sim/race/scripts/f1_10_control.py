@@ -42,7 +42,7 @@ angle_range=180
 velocity = 0.0      #Global variable
 steering_angle = 0.0
 leader_name = 'car1'
-follower_name='car2'
+follower_name = 'car2'
 
 
 
@@ -255,8 +255,8 @@ def direction_control():
             if(speed_leader == 0.0 or speed_leader < 0.2):#If the leader velocity is zero or very low, the follower will stop as well
                 speed_follower_2 = 0.0
 
-        plt.plot([program_time,dist_to_leader])
-        plt.show()
+        # plt.plot([program_time,dist_to_leader])
+        # plt.show()
     #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
     #Read distance to leader from LIDAR
     #Calculate difference from distance to leader from /car2/odom and LIDAR
@@ -265,8 +265,8 @@ def direction_control():
 
 
 # Set up plot to call animate() function periodically
-ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), interval=1000)
-plt.show()
+# ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), interval=1000)
+# plt.show()
 
 
 ##########################
@@ -332,21 +332,6 @@ def lidar_meausurements(data):
     #     velocity=2.0
 
 
-
-
-
-
-def compare_meausures():
-    
-    global latitude_compare_car_2
-    global longitude_compare_car_2
-    global orientation_compare_x_car_2
-    global orientation_compare_y_car_2
-
-
-
-
-
 ############################################################################
 #General platooning control
 #Receives data from steering angle and direction and makes corrections
@@ -357,6 +342,11 @@ def platooning_control():
     car_control_msg = AckermannDriveStamped()
 
     car_control_msg.drive.steering_angle = direction_control()
+
+##########################################################################
+#Need to add a main function where all the info from cars is processed
+#Add PID control to this function
+##########################################################################
 
 def listener():
     print("F1/10 node started")
