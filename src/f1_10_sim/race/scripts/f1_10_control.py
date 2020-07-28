@@ -19,10 +19,14 @@ import math as m
 import time
 import datetime as dt
 
-car_position=np.empty([1,4])#Creates an array with 3 positions
 #distance_file=open('distance_file.txt','w')#Writes the positions obtained from LIDAR in a file
 
 LIDAR_ODOMETRY_ERROR = 0
+MINIMUM_ANGLE_FOV = 45
+
+LOST_POSITION = 0
+NORMAL_MODE = 1
+mode = 1
 
 ###########
 #PLOT
@@ -55,7 +59,7 @@ latitude_leader = 0.0
 longitude_leader = 0.0
 heading_leader = 0.0    #Global variable
 speed_leader = 0.0
-
+leader_position_array = np.empty([1,3])#Stores the position of the leader in an array, in order to compare the position with the follower
 
 
 ########################
@@ -92,6 +96,7 @@ total_distance = 0.0
 ###############################
 MAX_STEERING_ANGLE = 1.0
 MAX_SPEED = 2.5
+MAX_DISTANCE = 5.0
 
 #CONVERT RADIAN TO DEGREES
 DEGREE_CONVERSION = 180/(np.pi)
@@ -301,11 +306,18 @@ def lidar_meausurements(data):
         lidar_coordinates_y=data.ranges[i]*np.sin(angle_index)
         #print("LIDAR Coordinates in X Axis:", lidar_coordinates_x)
         #print("LIDAR Coordinates in Y Axis:", lidar_coordinates_y)
+        if(data.ranges[i]>MAX_DISTANCE):
+            data.ranges[i] == MAX_DISTANCE
+
+
 
     #Calculates distance in all FOV 
     total_distance=m.sqrt((lidar_coordinates_x**2)+(lidar_coordinates_y**2))#Calculates distance through hypotenuse
-    print("Total distance\n", total_distance)#Distance in meters
+    print("Total distance meausured by LiDAR\n", total_distance)#Distance in meters
     time.sleep(0.1)
+    #print(data.ranges[320])
+
+    
     
     #Prints only the front distance of the FOV
     #print(data.ranges[360])
@@ -329,13 +341,64 @@ def lidar_meausurements(data):
             distance_file.write(str(total_distance))#Writes distance into file
     except:
         print("Not able to write to file")
-    
-    # if(total_distance>1.2 or total_distance<2.0):
-    #     velocity=1.5
-    #     steering_angle=0.0
-    # elif total_distance<1:
-    #     velocity=2.0
 
+
+# def following_leader():
+
+#     global leader_position_array
+#     global latitude_leader
+#     global longitude_leader
+#     global speed_leader
+#     global latitude_follower_2
+#     global longitude_follower_2
+#     global heading_follower_2
+#     global mode
+
+#     lost_distance = 0
+#     dist = 0
+#     dist_lost = 0
+#     dist_lost_min = 999
+#     pos_lost = 0
+#     pos = 0
+#     dist_min = 999
+
+#     leader_position_array = np.append(leader_position_array,[[latitude_leader,longitude_leader,speed_leader]],axis=0)
+
+#     for i in range(leader_position_array.shape[0]):
+#         following_lat_diff = leader_position_array[i,0] - latitude_follower_2
+#         following_long_diff = leader_position_array[i,0] - longitude_follower_2
+
+#         angle_leader_follower = m.atan2(following_long_diff,following_lat_diff)#Calculates the angle between the positions of leader and follower
+
+#         angle_diff = heading_follower_2 - angle_leader_follower#Difference between follower and the angle between leader and follower
+
+#         if(abs(angle_diff) < MINIMUM_ANGLE_FOV):
+#             print(1)
+#             dist = m.sqrt((leader_position_array[i,1] - longitude_follower_2)**2 + (leader_position_array[i,0] - latitude_follower_2)**2)
+#         else:
+#             dist_lost = m.sqrt((leader_position_array[i,1] - longitude_follower_2)**2 + (leader_position_array[i,0] - latitude_follower_2)**2)
+
+#             if dist_lost_min > dist_lost and dist_lost > 0.0:
+#                 pos_lost = i
+#                 dist_lost_min = dist_lost
+
+        
+#         if dist_min > dist and dist > 0.0:
+#             pos = i
+#             dist_min = dist             #else, update dist_min value
+#             mode = NORMAL
+#         elif dist_min < dist:
+#             mode = NORMAL
+#             break
+#         elif (i == (TV_position_vector.shape[0] - 1)):
+#             pos = pos_lost
+#             mode = LOST
+
+#     latitude_leader = TV_position_vector[pos,0]                 #update the value of TV_latitude 
+#     longitude_leader = TV_position_vector[pos,1]                #update the value of TV_longitude 
+#     #heading_out = TV_position_vector[pos,2]
+#     speed_leader = TV_position_vector[pos,2]
+#     TV_position_vector = TV_position_vector[pos:,:]     #clean the vector, excluding the old positions
 
 #####################################################################
 #Compare the latitude and longitude from LiDAR and Gazebo odometry
@@ -379,7 +442,7 @@ def listener():
     print("F1/10 node started")
     rospy.init_node('f1_10', anonymous=True)
     rospy.Subscriber('/drive_parameters', drive_param, car_velocity)#Subscribes to topic that stores velocity and steering angle
-    rospy.Subscriber('/scan', LaserScan, lidar_meausurements)
+    rospy.Subscriber('/scan/car2', LaserScan, lidar_meausurements)
     rospy.Subscriber('/car2/odom', Odometry, car2_info)
     rospy.Subscriber('/car1/odom', Odometry, car1_info)
     rospy.spin()
