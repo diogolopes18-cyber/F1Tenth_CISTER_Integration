@@ -268,7 +268,7 @@
 
   <!-- Add the remaining xacros -->
 
-  <xacro:include filename="$(find racecar_description)/urdf/racecar.gazebo" />
+  <xacro:include filename="$(find racecar_description)/urdf/racecar_car3.gazebo" />
   <xacro:include filename="$(find racecar_description)/urdf/materials.xacro" />
 
 </robot>
