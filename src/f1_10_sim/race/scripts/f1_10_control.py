@@ -17,6 +17,8 @@ import matplotlib.animation as animation
 import tf
 import math as m
 import time
+from time import strftime, gmtime
+from os.path import expanduser
 import datetime as dt
 
 #distance_file=open('distance_file.txt','w')#Writes the positions obtained from LIDAR in a file
@@ -107,6 +109,17 @@ DEGREE_CONVERSION = 180/(np.pi)
 
 direction_control_time_flag = 0.0
 MIN_TIME_STAMP = 0.1
+
+###############
+#CSV FILE
+###############
+#user_directory = expanduser('~/sims_ws')#Defines the path to home directory
+#csv_file = open(strftime('Meausure_Comparison_%Y_%m_%d_%H_%M_%S',gmtime())+'.txt','w')#Opens file in home directory
+
+# def csv_writting():
+
+#     write_time = time.time()
+#     file.write('%f,%f\n' % ())
 
 
 #Atributing to the variable velocity the value of the msg file in order to be used througout the script
@@ -272,6 +285,8 @@ def direction_control():
     #Calculate difference from distance to leader from /car2/odom and LIDAR
     #Store the position of every distance read by LIDAR in an array in order to use in mapping
 
+    compare_meausures()
+
 
 
 # Set up plot to call animate() function periodically
@@ -411,8 +426,11 @@ def compare_meausures():
     global longitude_leader
 
     #Calculate difference between meausurements from LiDAR and Gazebo
-    latitude_leader_compare = lidar_coordinates_x - latitude_leader
-    longitude_leader_compare = lidar_coordinates_y - longitude_leader
+    latitude_leader_compare = latitude_leader - lidar_coordinates_x
+    longitude_leader_compare = longitude_leader - lidar_coordinates_y
+
+    # execution_time = time.time()
+    # delay = execution_time - direction_control_time_flag
 
     #Check for errors and values that aren't numbers
     if(m.isnan(latitude_leader_compare) or m.isnan(longitude_leader_compare)):
@@ -420,6 +438,8 @@ def compare_meausures():
     else:
         latitude_leader = latitude_leader_compare
         longitude_leader = longitude_leader_compare
+    
+    print("Test:",latitude_leader_compare)
 
 
 ############################################################################
