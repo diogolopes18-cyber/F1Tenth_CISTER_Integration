@@ -24,7 +24,6 @@ import datetime as dt
 #distance_file=open('distance_file.txt','w')#Writes the positions obtained from LIDAR in a file
 
 LIDAR_ODOMETRY_ERROR = 0
-MINIMUM_ANGLE_FOV = 45
 
 LOST_POSITION = 0
 NORMAL_MODE = 1
@@ -43,6 +42,12 @@ ys = []
 ############################################
 
 angle_range=180
+PID_real_dist = 0.0
+PID_dist = 0.0
+
+kp_theta = 0.5
+kd_theta = 0.0000
+ki_theta = 0.000
 
 ####################################
 #Velocity and steering parameters
@@ -99,6 +104,7 @@ total_distance = 0.0
 MAX_STEERING_ANGLE = 1.0
 MAX_SPEED = 2.5
 MAX_DISTANCE = 5.0
+MIN_DISTANCE = 1.0
 
 #CONVERT RADIAN TO DEGREES
 DEGREE_CONVERSION = 180/(np.pi)
@@ -108,7 +114,19 @@ DEGREE_CONVERSION = 180/(np.pi)
 ################
 
 direction_control_time_flag = 0.0
+time_control_flag = 0.0
 MIN_TIME_STAMP = 0.1
+
+###############
+#ANGLES
+###############
+theta_error = 0.0
+theta_error_old = 0.0
+theta_pid_control = 0.0
+theta_integral = 0.0
+theta_derivative_value = 0.0
+MAXIMUM_ANGLE_FOV = 45
+MINIMUM_ANGLE_FOV = 2.0
 
 ###############
 #CSV FILE
@@ -123,7 +141,7 @@ MIN_TIME_STAMP = 0.1
 
 
 #Atributing to the variable velocity the value of the msg file in order to be used througout the script
-def car_velocity(msg):
+def car_parameters(msg):
 
     global velocity
     global steering_angle
@@ -168,19 +186,12 @@ def car1_info(data):
     global heading_leader
     global latitude_leader
     global longitude_leader
-
-    #Control conditions
-    if(msg.drive.steering_angle > MAX_STEERING_ANGLE):
-        msg.drive.steering_angle == MAX_STEERING_ANGLE
-    
-    if(msg.drive.speed > MAX_SPEED):
-        msg.drive.speed == MAX_SPEED
     
     #Latitude and longitude
     latitude_leader = data.pose.pose.position.x
     longitude_leader = data.pose.pose.position.y
 
-    platooning_control()
+    #platooning_control()
 
 
 #######################################################
@@ -204,7 +215,7 @@ def car2_info(data):
 	    data.pose.pose.orientation.w)
     euler_tf=tf.transformations.euler_from_quaternion(quaternion)
 
-        #Control conditions
+    #Control conditions
     if(msg.drive.steering_angle > MAX_STEERING_ANGLE):
         msg.drive.steering_angle == MAX_STEERING_ANGLE
     
@@ -234,6 +245,8 @@ def car2_info(data):
     #Converts to degrees
     heading_follower_2= yaw * DEGREE_CONVERSION
 
+    general_control()
+
 
 ################################################################################################################
 #Controls the position between the real position of leader car and the desired position
@@ -241,17 +254,22 @@ def car2_info(data):
 #In order to have a functioning platoon, we must target the orientation of car2 towards the postion of car1
 ################################################################################################################
 
-def direction_control():
+def direction_control(lat_leader, long_leader,head_leader,head_follower):
 
-    global latitude_leader
+    #global latitude_leader
     global latitude_follower_2
-    global longitude_leader
+    #global longitude_leader
     global longitude_follower_2
     global orientation_x_car2
     global orientation_y_car2
     global velocity
     global speed_follower_2
     global speed_leader
+    global direction_control_time_flag
+    global theta_pid_control
+    global theta_error_old
+    global theta_error
+    global theta_derivative_value
 
     speed_follower_2 = velocity#Stores the value of velocity to car2
     speed_leader = velocity
@@ -263,29 +281,44 @@ def direction_control():
 
     #If the simulation is started, then the differences between longitude and latitude will be calculated
     if(time_delay >= MIN_TIME_STAMP):
-        diff_lat = latitude_leader - latitude_follower_2
-        diff_long = longitude_leader - longitude_follower_2
+        direction_control_time_flag = program_time#Saves time for next iteration
+
+        diff_lat = lat_leader - latitude_follower_2
+        diff_long = long_leader - longitude_follower_2
 
         #Since we have the desired values of latitude and longitude, we know where car1 must be at any time
         dist_to_leader = m.sqrt((diff_lat**2)+(diff_long**2))
         print("Distance to leader:", dist_to_leader)
 
+        #Control for distance
+        if(dist_to_leader <= MIN_DISTANCE):
+            dist_to_leader == MIN_DISTANCE
+
         #Make car2 orientation to be car1 position
-        orientation_x_car2 = latitude_leader
-        orientation_y_car2 = longitude_leader
+        orientation_x_car2 = lat_leader
+        orientation_y_car2 = long_leader
 
-        if(dist_to_leader < 0.5):#Checks distance in order to stop, if leader stops as well
-            if(speed_leader == 0.0 or speed_leader < 0.2):#If the leader velocity is zero or very low, the follower will stop as well
-                speed_follower_2 = 0.0
+        theta_error = (head_leader) - (head_follower)
+        if(abs(theta_error) > MINIMUM_ANGLE_FOV):
 
-        # plt.plot([program_time,dist_to_leader])
-        # plt.show()
-    #Create an array to store the distance to leader read by LIDAR and compare the distance read from LIDAR and the one published by /car2/odom
-    #Read distance to leader from LIDAR
-    #Calculate difference from distance to leader from /car2/odom and LIDAR
-    #Store the position of every distance read by LIDAR in an array in order to use in mapping
+            theta_derivative_value = theta_error_old - theta_error
+            theta_pid_control = (kp_theta*theta_error + kd_theta*theta_derivative_value)
 
-    compare_meausures()
+            if(theta_pid_control > MAX_STEERING_ANGLE):
+                theta_pid_control = MAX_STEERING_ANGLE
+            elif(theta_pid_control < -MAX_STEERING_ANGLE):
+                theta_pid_control = -MAX_STEERING_ANGLE
+
+        theta_error = 0
+        theta_error_old = 0
+        theta_pid_control = 0
+        theta_integral = 0
+
+        return (-theta_pid_control)
+    
+    else:
+        return 0.0
+
 
 
 
@@ -305,10 +338,6 @@ def lidar_meausurements(data):
     global total_distance
     global velocity
     global steering_angle
-    # global index
-    # global theta
-
-    #theta=180
 
     absurde_value=0
 
@@ -319,8 +348,7 @@ def lidar_meausurements(data):
         angle_index=(data.angle_min)+(i*(data.angle_increment))#Gives the angle to a specific point
         lidar_coordinates_x=data.ranges[i]*np.cos(angle_index)
         lidar_coordinates_y=data.ranges[i]*np.sin(angle_index)
-        #print("LIDAR Coordinates in X Axis:", lidar_coordinates_x)
-        #print("LIDAR Coordinates in Y Axis:", lidar_coordinates_y)
+
         if(data.ranges[i]>MAX_DISTANCE):
             data.ranges[i] == MAX_DISTANCE
 
@@ -350,12 +378,12 @@ def lidar_meausurements(data):
     if(m.isinf(total_distance) or m.isnan(total_distance)):
         return absurde_value
 
-    
-    try:
-        with open('distance_file.txt','w') as distance_file:
-            distance_file.write(str(total_distance))#Writes distance into file
-    except:
-        print("Not able to write to file")
+    while True:
+        try:
+            with open('distance_file.txt','w') as distance_file:
+                distance_file.write(str(total_distance))#Writes distance into file
+        except:
+            print("Not able to write to file")
 
 
 # def following_leader():
@@ -448,20 +476,69 @@ def compare_meausures():
 #NEED TO ADD PID CONTROL
 ############################################################################
 
-def platooning_control():
-    car_control_msg = AckermannDriveStamped()
+# def platooning_control():
+#     car_control_msg = AckermannDriveStamped()
 
-    car_control_msg.drive.steering_angle = direction_control()
+#     car_control_msg.drive.steering_angle = direction_control()
 
 ##########################################################################
 #Need to add a main function where all the info from cars is processed
 #Add PID control to this function
 ##########################################################################
+def general_control():      #STILL NEED TO TEEST
+    
+    #Leader data
+    global latitude_leader
+    global longitude_leader
+    global heading_leader
+    global speed_leader
+    #global steering_angle
+
+    #Follower data
+    global longitude_follower_2
+    global latitude_follower_2
+    global heading_follower_2
+    global speed_follower_2
+
+    #Timers
+    global time_iteration_2
+    global initial_time
+    global time_flag
+
+    #PID
+    global PID_real_dist
+
+    time_now = time.time()
+    time_lapse = time_now - time_control_flag
+
+    ctrl_msg_car2 = drive_param()
+
+    if(time_lapse >= MIN_TIME_STAMP):
+
+        platoon_distance = m.sqrt((latitude_leader - latitude_follower_2)**2 + (longitude_leader - longitude_follower_2)**2)
+        print("Distance:", platoon_distance)
+
+        platoon_distance_error = platoon_distance - MAX_DISTANCE
+        print("Distance error:", platoon_distance_error)
+
+         = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
+
+        
+    # platoon_distance = m.sqrt(((longitude_leader - longitude_follower_2)**2) + ((latitude_leader - latitude_follower_2)**2))
+    # platoon_distance_error = platoon_distance - MAX_DISTANCE
+    # print(platoon_distance_error)
+
+    # #if(platoon_distance > MIN_DISTANCE and speed_leader > MIN_SPEED):
+            
+    # PID_real_dist = longitudinal_control(platoon_distance_error)
+    # print(21)
+
+    # steering_angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
 
 def listener():
     print("F1/10 node started")
     rospy.init_node('f1_10', anonymous=True)
-    rospy.Subscriber('/drive_parameters', drive_param, car_velocity)#Subscribes to topic that stores velocity and steering angle
+    rospy.Subscriber('/drive_parameters', drive_param, car_parameters)#Subscribes to topic that stores velocity and steering angle
     rospy.Subscriber('/scan/car2', LaserScan, lidar_meausurements)
     rospy.Subscriber('/car2/odom', Odometry, car2_info)
     rospy.Subscriber('/car1/odom', Odometry, car1_info)
