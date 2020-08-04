@@ -527,8 +527,8 @@ def compare_meausures():
     print("Test:",latitude_leader_compare)
 
     if(delay >= MIN_TIME_STAMP):
-        with open('compare.txt','w') as compare:
-            compare.write(str(latitude_leader_compare,latitude_leader))#Writes distance into file
+        with open('lidar.csv','w') as compare_lidar:
+            compare_lidar.write('%f,%f\n' % (latitude_leader,latitude_leader_compare))#Writes distance into file
 
 ############################################################################
 #General platooning control
@@ -592,7 +592,10 @@ def general_control():      #STILL NEED TO TEEST
                 speed_follower_2 = MAX_SPEED
         else:
             speed_follower_2 = 0.0
-            
+
+        with open(strftime('compare_pid.csv','w')) as compare_pid:
+            compare_pid.write('%f,%f\n' % (platoon_distance,platoon_distance_error))#Writes distance into file
+
 
         
     # platoon_distance = m.sqrt(((longitude_leader - longitude_follower_2)**2) + ((latitude_leader - latitude_follower_2)**2))
