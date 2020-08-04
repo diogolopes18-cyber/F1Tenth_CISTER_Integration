@@ -50,6 +50,17 @@ kp_theta = 0.5
 kd_theta = 0.0000
 ki_theta = 0.000
 
+kp_dis = 5.0
+ki_dis = 0
+kd_dis = 0.005
+
+distance_integral = 0.0
+distance_derivative_value = 0.0
+distance_error_old = 0.0
+distance_pid_control = 0.0
+
+distance_pid = 0.0
+
 ####################################
 #Velocity and steering parameters
 ####################################
@@ -107,6 +118,7 @@ MAX_STEERING_ANGLE = 1.0
 MAX_SPEED = 2.5
 MAX_DISTANCE = 5.0
 MIN_DISTANCE = 1.0
+MIN_SPEED = 0.1
 
 #CONVERT RADIAN TO DEGREES
 DEGREE_CONVERSION = 180/(np.pi)
@@ -224,12 +236,12 @@ def car2_info(data):
 	    data.pose.pose.orientation.w)
     euler_tf=tf.transformations.euler_from_quaternion(quaternion)
 
-    #Control conditions
-    if(msg.drive.steering_angle > MAX_STEERING_ANGLE):
-        msg.drive.steering_angle == MAX_STEERING_ANGLE
+    # #Control conditions
+    # if(msg.drive.steering_angle > MAX_STEERING_ANGLE):
+    #     msg.drive.steering_angle == MAX_STEERING_ANGLE
     
-    if(msg.drive.speed > MAX_SPEED):
-        msg.drive.speed == MAX_SPEED
+    # if(msg.drive.speed > MAX_SPEED):
+    #     msg.drive.speed == MAX_SPEED
 
     x_position=data.pose.pose.position.x
     #roll=euler_tf[0]
@@ -240,9 +252,15 @@ def car2_info(data):
     latitude_follower_2 = data.pose.pose.position.x
     longitude_follower_2 = data.pose.pose.position.y
 
+    print("Follower:", longitude_follower_2)
+    print("Leader:", longitude_leader)
+
     #Orientation for car2
     orientation_x_car2 = data.pose.pose.orientation.x
     orientation_y_car2 = data.pose.pose.orientation.y
+
+    # error_long = longitude_leader - longitude_follower_2
+    # print("Test:", error_long)
 
     #Checks for not valid number formats
     try:
@@ -256,6 +274,36 @@ def car2_info(data):
 
     general_control()
 
+
+
+def longitudinal_control(error_distance):
+
+    global direction_control_time_flag
+    global distance_derivative_value
+    global distance_error_old
+    global distance_pid_control
+    global distance_integral
+
+    actual_time = time.time()
+    time_diff = actual_time - direction_control_time_flag
+
+    if(time_diff >= MIN_TIME_STAMP):
+        direction_control_time_flag = actual_time#Saves current time for next iteration
+
+        print("Test_1")#Debug control
+
+        if(time_diff < 1):
+            distance_derivative_value = distance_error_old - error_distance
+        else:
+            distance_derivative_value = distance_error_old - error_distance
+        distance_error_old = error_distance#Updates the error value of distance with the value passed by the meausures from Gazebo odometry
+
+        distance_pid_control = kp_dis * error_distance + kd_dis *distance_derivative_value
+    
+    else:
+        distance_pid_control = 0.0
+    
+    return distance_pid_control#Returns the adjusted value from PID control of the distance between the follower and leader
 
 ################################################################################################################
 #Controls the position between the real position of leader car and the desired position
@@ -280,8 +328,8 @@ def direction_control(lat_leader, long_leader,head_leader,head_follower):
     global theta_error
     global theta_derivative_value
 
-    speed_follower_2 = velocity#Stores the value of velocity to car2
-    speed_leader = velocity
+    # speed_follower_2 = velocity#Stores the value of velocity to car2
+    # speed_leader = velocity
 
 
     program_time = time.time()
@@ -301,7 +349,7 @@ def direction_control(lat_leader, long_leader,head_leader,head_follower):
 
         #Control for distance
         if(dist_to_leader <= MIN_DISTANCE):
-            dist_to_leader == MIN_DISTANCE
+            dist_to_leader = MIN_DISTANCE
 
         #Make car2 orientation to be car1 position
         orientation_x_car2 = lat_leader
@@ -533,7 +581,18 @@ def general_control():      #STILL NEED TO TEEST
         platoon_distance_error = platoon_distance - MAX_DISTANCE
         print("Distance error:", platoon_distance_error)
 
-        ctrl_msg_car2.angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
+        #ctrl_msg_car2.angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
+
+        if(platoon_distance >= MIN_DISTANCE and speed_leader >= MIN_SPEED):
+            PID_real_dist = longitudinal_control(platoon_distance_error)
+
+            if(speed_follower_2 < MIN_SPEED):
+                speed_follower_2 = MIN_SPEED
+            elif(speed_follower_2 > MAX_SPEED):
+                speed_follower_2 = MAX_SPEED
+        else:
+            speed_follower_2 = 0.0
+            
 
         
     # platoon_distance = m.sqrt(((longitude_leader - longitude_follower_2)**2) + ((latitude_leader - latitude_follower_2)**2))
