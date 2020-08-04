@@ -20,6 +20,7 @@ import time
 from time import strftime, gmtime
 from os.path import expanduser
 import datetime as dt
+import csv
 
 #distance_file=open('distance_file.txt','w')#Writes the positions obtained from LIDAR in a file
 
@@ -78,6 +79,7 @@ heading_follower_2 = 0.0
 speed_follower_2 = 0.0
 orientation_x_car2 = 0.0
 orientation_y_car2 = 0.0
+steering_angle_car2 = 0.0
 
 ########################################################################################
 #CORRECTED PARAMETERS BASED ON THE COMPARISON ON THE ODOMETRY FROM LiDAR AND GAZEBO
@@ -141,13 +143,20 @@ MINIMUM_ANGLE_FOV = 2.0
 
 
 #Atributing to the variable velocity the value of the msg file in order to be used througout the script
-def car_parameters(msg):
+def car_parameters_leader(msg):
 
-    global velocity
+    global speed_leader
     global steering_angle
 
-    velocity=msg.velocity
+    speed_leader=msg.velocity
     steering_angle=msg.angle
+
+def car_parameters_car2(msg):
+    global speed_follower_2
+    global steering_angle_car2
+
+    speed_follower_2 = msg.velocity
+    steering_angle_car2 = msg.angle
 
 
 
@@ -457,8 +466,8 @@ def compare_meausures():
     latitude_leader_compare = latitude_leader - lidar_coordinates_x
     longitude_leader_compare = longitude_leader - lidar_coordinates_y
 
-    # execution_time = time.time()
-    # delay = execution_time - direction_control_time_flag
+    execution_time = time.time()
+    delay = execution_time - direction_control_time_flag
 
     #Check for errors and values that aren't numbers
     if(m.isnan(latitude_leader_compare) or m.isnan(longitude_leader_compare)):
@@ -469,6 +478,9 @@ def compare_meausures():
     
     print("Test:",latitude_leader_compare)
 
+    if(delay >= MIN_TIME_STAMP):
+        with open('compare.txt','w') as compare:
+            compare.write(str(latitude_leader_compare,latitude_leader))#Writes distance into file
 
 ############################################################################
 #General platooning control
@@ -521,7 +533,7 @@ def general_control():      #STILL NEED TO TEEST
         platoon_distance_error = platoon_distance - MAX_DISTANCE
         print("Distance error:", platoon_distance_error)
 
-         = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
+        ctrl_msg_car2.angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
 
         
     # platoon_distance = m.sqrt(((longitude_leader - longitude_follower_2)**2) + ((latitude_leader - latitude_follower_2)**2))
@@ -538,7 +550,8 @@ def general_control():      #STILL NEED TO TEEST
 def listener():
     print("F1/10 node started")
     rospy.init_node('f1_10', anonymous=True)
-    rospy.Subscriber('/drive_parameters', drive_param, car_parameters)#Subscribes to topic that stores velocity and steering angle
+    rospy.Subscriber('/drive_parameters', drive_param, car_parameters_leader)#Subscribes to topic that stores velocity and steering angle
+    rospy.Subscriber('/drive_parameters/car2', drive_param, car_parameters_car2)
     rospy.Subscriber('/scan/car2', LaserScan, lidar_meausurements)
     rospy.Subscriber('/car2/odom', Odometry, car2_info)
     rospy.Subscriber('/car1/odom', Odometry, car1_info)
