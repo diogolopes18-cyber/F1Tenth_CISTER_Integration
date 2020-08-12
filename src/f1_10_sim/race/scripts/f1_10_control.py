@@ -91,6 +91,7 @@ speed_follower_2 = 0.0
 orientation_x_car2 = 0.0
 orientation_y_car2 = 0.0
 steering_angle_car2 = 0.0
+follower_position_array = np.empty([1,3])#Stores the positions of the follower
 
 ########################################################################################
 #CORRECTED PARAMETERS BASED ON THE COMPARISON ON THE ODOMETRY FROM LiDAR AND GAZEBO
@@ -130,6 +131,7 @@ DEGREE_CONVERSION = 180/(np.pi)
 direction_control_time_flag = 0.0
 time_control_flag = 0.0
 MIN_TIME_STAMP = 0.1
+lateral_control_time_flag = 0.0
 
 ###############
 #ANGLES
@@ -146,13 +148,7 @@ MINIMUM_ANGLE_FOV = 2.0
 #CSV FILE
 ###############
 #user_directory = expanduser('~/sims_ws')#Defines the path to home directory
-#csv_file = open(strftime('Meausure_Comparison_%Y_%m_%d_%H_%M_%S',gmtime())+'.txt','w')#Opens file in home directory
-
-# def csv_writting():
-
-#     write_time = time.time()
-#     file.write('%f,%f\n' % ())
-
+csv_file = open('platoon_test.csv','w')#Opens file in home directory
 
 #Atributing to the variable velocity the value of the msg file in order to be used througout the script
 def car_parameters_leader(msg):
@@ -193,8 +189,16 @@ def animate(i, xs, ys):
     # Format plot
     plt.xticks(rotation=45, ha='right')
     plt.subplots_adjust(bottom=0.30)
-    plt.title('Distance to leader over time')
+    plt.title('Distance to leader over time without control script')
     plt.ylabel('Distance(m)')
+
+def csv_file_write():
+    
+    global PID_real_dist
+    timestamp = time.time()
+    timestamp_date = time.ctime(timestamp)
+    csv_file.write('%s,%f\n' % (timestamp_date,PID_real_dist))#Plots distance to leader to csv
+
 
 #######################################################
 #Obtains position data for car1
@@ -384,6 +388,58 @@ def direction_control(lat_leader, long_leader,head_leader,head_follower):
 # plt.show()
 
 
+def lateral_control(lat_leader, long_leader, head_leader, head_follower):
+
+    # global leader_position_array
+    # global latitude_follower_2
+    # global longitude_follower_2
+    # global follower_position_array
+    global lateral_control_time_flag
+    global theta_error_old
+    global theta_error
+    global theta_derivative_value
+    global theta_integral
+    global theta_pid_control
+
+    sim_time = time.time()
+    sim_delay = sim_time - lateral_control_time_flag
+
+    if(sim_delay >= MIN_TIME_STAMP):
+        lateral_control_time_flag = sim_time#Saves time for next iteration
+
+        latitude_diff = lat_leader - latitude_follower_2
+        longitude_diff = long_leader - longitude_follower_2
+        dist_leader = m.sqrt(latitude_diff**2 + longitude_diff**2)#Calculates distance to leader
+
+        theta_error = head_leader - head_follower
+        print("Test_2")
+
+        if(abs(theta_error) >= MINIMUM_ANGLE_FOV):
+
+            theta_derivative_value = theta_error_old - theta_error
+            theta_error_old = theta_error
+
+            theta_pid_control = kp_theta*theta_error + kd_theta*theta_derivative_value
+
+            if(theta_pid_control >= MAX_STEERING_ANGLE):
+                theta_pid_control = MAX_STEERING_ANGLE
+                print("1234")
+            elif(theta_pid_control < -MAX_STEERING_ANGLE):
+                theta_pid_control = -MAX_STEERING_ANGLE
+        
+        else:
+            theta_pid_control = 0
+            theta_error = 0
+            theta_integral = 0
+            theta_error_old = 0
+        
+        return (-theta_pid_control)
+    
+    else:
+        return 0.0
+
+
+
 ##########################
 # LIDAR MEASUREMENTS
 ##########################
@@ -530,17 +586,6 @@ def compare_meausures():
         with open('lidar.csv','w') as compare_lidar:
             compare_lidar.write('%f,%f\n' % (latitude_leader,latitude_leader_compare))#Writes distance into file
 
-############################################################################
-#General platooning control
-#Receives data from steering angle and direction and makes corrections
-#NEED TO ADD PID CONTROL
-############################################################################
-
-# def platooning_control():
-#     car_control_msg = AckermannDriveStamped()
-
-#     car_control_msg.drive.steering_angle = direction_control()
-
 ##########################################################################
 #Need to add a main function where all the info from cars is processed
 #Add PID control to this function
@@ -559,6 +604,7 @@ def general_control():      #STILL NEED TO TEEST
     global latitude_follower_2
     global heading_follower_2
     global speed_follower_2
+    global steering_angle_car2
 
     #Timers
     global time_iteration_2
@@ -571,7 +617,7 @@ def general_control():      #STILL NEED TO TEEST
     time_now = time.time()
     time_lapse = time_now - time_control_flag
 
-    ctrl_msg_car2 = drive_param()
+    #ctrl_msg_car2 = drive_param()
 
     if(time_lapse >= MIN_TIME_STAMP):
 
@@ -581,7 +627,8 @@ def general_control():      #STILL NEED TO TEEST
         platoon_distance_error = platoon_distance - MAX_DISTANCE
         print("Distance error:", platoon_distance_error)
 
-        #ctrl_msg_car2.angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
+        #steering_angle_car2 = lateral_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
+        heading_follower_2 = heading_leader
 
         if(platoon_distance >= MIN_DISTANCE and speed_leader >= MIN_SPEED):
             PID_real_dist = longitudinal_control(platoon_distance_error)
@@ -592,11 +639,9 @@ def general_control():      #STILL NEED TO TEEST
                 speed_follower_2 = MAX_SPEED
         else:
             speed_follower_2 = 0.0
-
-        with open(strftime('compare_pid.csv','w')) as compare_pid:
-            compare_pid.write('%f,%f\n' % (platoon_distance,platoon_distance_error))#Writes distance into file
-
-
+        
+        # with open(strftime('compare_pid.csv','w')) as compare_pid:
+        #     compare_pid.write('%f,%f\n' % (platoon_distance,platoon_distance_error))#Writes distance into file
         
     # platoon_distance = m.sqrt(((longitude_leader - longitude_follower_2)**2) + ((latitude_leader - latitude_follower_2)**2))
     # platoon_distance_error = platoon_distance - MAX_DISTANCE
@@ -608,6 +653,7 @@ def general_control():      #STILL NEED TO TEEST
     # print(21)
 
     # steering_angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
+    csv_file_write()
 
 def listener():
     print("F1/10 node started")
