@@ -194,10 +194,10 @@ def animate(i, xs, ys):
 
 def csv_file_write():
     
-    global PID_real_dist
+    global platoon_distance
     timestamp = time.time()
     timestamp_date = time.ctime(timestamp)
-    csv_file.write('%s,%f\n' % (timestamp_date,PID_real_dist))#Plots distance to leader to csv
+    csv_file.write('%s,%f\n' % (timestamp_date,platoon_distance))#Plots distance to leader to csv
 
 
 #######################################################
@@ -613,6 +613,7 @@ def general_control():      #STILL NEED TO TEEST
 
     #PID
     global PID_real_dist
+    global platoon_distance
 
     time_now = time.time()
     time_lapse = time_now - time_control_flag
