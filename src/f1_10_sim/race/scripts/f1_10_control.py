@@ -279,7 +279,9 @@ def car2_info(data):
     general_control()
 
 
-
+###########################################################
+#Controls the distance between the follower and leader
+###########################################################
 def longitudinal_control(error_distance):
 
     global direction_control_time_flag
@@ -309,84 +311,16 @@ def longitudinal_control(error_distance):
     
     return distance_pid_control#Returns the adjusted value from PID control of the distance between the follower and leader
 
-################################################################################################################
-#Controls the position between the real position of leader car and the desired position
-#Orientation gives us the desired trajectory towards a target
-#In order to have a functioning platoon, we must target the orientation of car2 towards the postion of car1
-################################################################################################################
-
-def direction_control(lat_leader, long_leader,head_leader,head_follower):
-
-    #global latitude_leader
-    global latitude_follower_2
-    #global longitude_leader
-    global longitude_follower_2
-    global orientation_x_car2
-    global orientation_y_car2
-    global velocity
-    global speed_follower_2
-    global speed_leader
-    global direction_control_time_flag
-    global theta_pid_control
-    global theta_error_old
-    global theta_error
-    global theta_derivative_value
-
-    # speed_follower_2 = velocity#Stores the value of velocity to car2
-    # speed_leader = velocity
-
-
-    program_time = time.time()
-
-    time_delay = program_time - direction_control_time_flag
-
-    #If the simulation is started, then the differences between longitude and latitude will be calculated
-    if(time_delay >= MIN_TIME_STAMP):
-        direction_control_time_flag = program_time#Saves time for next iteration
-
-        diff_lat = lat_leader - latitude_follower_2
-        diff_long = long_leader - longitude_follower_2
-
-        #Since we have the desired values of latitude and longitude, we know where car1 must be at any time
-        dist_to_leader = m.sqrt((diff_lat**2)+(diff_long**2))
-        print("Distance to leader:", dist_to_leader)
-
-        #Control for distance
-        if(dist_to_leader <= MIN_DISTANCE):
-            dist_to_leader = MIN_DISTANCE
-
-        #Make car2 orientation to be car1 position
-        orientation_x_car2 = lat_leader
-        orientation_y_car2 = long_leader
-
-        theta_error = (head_leader) - (head_follower)
-        if(abs(theta_error) > MINIMUM_ANGLE_FOV):
-
-            theta_derivative_value = theta_error_old - theta_error
-            theta_pid_control = (kp_theta*theta_error + kd_theta*theta_derivative_value)
-
-            if(theta_pid_control > MAX_STEERING_ANGLE):
-                theta_pid_control = MAX_STEERING_ANGLE
-            elif(theta_pid_control < -MAX_STEERING_ANGLE):
-                theta_pid_control = -MAX_STEERING_ANGLE
-
-        theta_error = 0
-        theta_error_old = 0
-        theta_pid_control = 0
-        theta_integral = 0
-
-        return (-theta_pid_control)
-    
-    else:
-        return 0.0
-
-
-
 
 # Set up plot to call animate() function periodically
 # ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), interval=1000)
 # plt.show()
 
+################################################################################################################
+#Controls the position between the real position of leader car and the desired position
+#Orientation gives us the desired trajectory towards a target
+#In order to have a functioning platoon, we must target the orientation of car2 towards the postion of car1
+################################################################################################################
 
 def lateral_control(lat_leader, long_leader, head_leader, head_follower):
 

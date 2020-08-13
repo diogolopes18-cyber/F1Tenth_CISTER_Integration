@@ -7,4 +7,4 @@
 # new environment variables
 
 # modified environment variables
-export PWD="/home/diogo/sims_ws/build"
+export PWD='/home/diogo/sims_ws/build'
