@@ -78,7 +78,9 @@ latitude_leader = 0.0
 longitude_leader = 0.0
 heading_leader = 0.0    #Global variable
 speed_leader = 0.0
-leader_position_array = np.empty([1,3])#Stores the position of the leader in an array, in order to compare the position with the follower
+TV_position_vector = np.empty([1,4])#Stores the position of the leader in an array, in order to compare the position with the follower
+latitude_leader_compare = 0.0#Compare measurements from LiDAR and Gazebo
+longitude_leader_compare = 0.0
 
 
 ########################
@@ -111,6 +113,9 @@ lidar_coordinates_x = 0.0
 lidar_coordinates_y = 0.0
 measures_lidar = 0.0
 total_distance = 0.0
+cross_track_distance = 0.0
+lidar_sum = []
+lidar_real_dist = 0.0
 
 ###############################
 #SPEED AND DIRECTION CONTROL
@@ -120,6 +125,7 @@ MAX_SPEED = 2.5
 MAX_DISTANCE = 5.0
 MIN_DISTANCE = 1.0
 MIN_SPEED = 0.1
+MIN_LAT_DIST = 1.5
 
 #CONVERT RADIAN TO DEGREES
 DEGREE_CONVERSION = 180/(np.pi)
@@ -144,11 +150,21 @@ theta_derivative_value = 0.0
 MAXIMUM_ANGLE_FOV = 45
 MINIMUM_ANGLE_FOV = 2.0
 
+#####################
+#STANLEY CONTROLLER
+#####################
+ke_t = 0.0
+vf_t = 0.0
+delta_final = 0.0
+heading_correction = 0.0
+path_heading = 0.0
+
 ###############
 #CSV FILE
 ###############
 #user_directory = expanduser('~/sims_ws')#Defines the path to home directory
 csv_file = open('platoon_test.csv','w')#Opens file in home directory
+lidar_file = open('lidar_comp.csv','w')
 
 #Atributing to the variable velocity the value of the msg file in order to be used througout the script
 def car_parameters_leader(msg):
@@ -192,12 +208,27 @@ def animate(i, xs, ys):
     plt.title('Distance to leader over time without control script')
     plt.ylabel('Distance(m)')
 
+
+#########################################################
+#Functions responsible for writting data into CSV files
+#########################################################
 def csv_file_write():
     
     global platoon_distance
     timestamp = time.time()
     timestamp_date = time.ctime(timestamp)
     csv_file.write('%s,%f\n' % (timestamp_date,platoon_distance))#Plots distance to leader to csv
+
+def lidar_csv_write():
+
+    global latitude_leader
+    global latitude_leader_compare
+    #global total_distance
+    global lidar_real_dist
+
+    timestamp = time.time()
+    timestamp_date = time.ctime(timestamp)
+    lidar_file.write('%s,%f,%f\n' % (timestamp_date,lidar_real_dist,latitude_leader_compare))#Plots distance to leader to csv
 
 
 #######################################################
@@ -240,17 +271,11 @@ def car2_info(data):
 	    data.pose.pose.orientation.w)
     euler_tf=tf.transformations.euler_from_quaternion(quaternion)
 
-    # #Control conditions
-    # if(msg.drive.steering_angle > MAX_STEERING_ANGLE):
-    #     msg.drive.steering_angle == MAX_STEERING_ANGLE
-    
-    # if(msg.drive.speed > MAX_SPEED):
-    #     msg.drive.speed == MAX_SPEED
-
     x_position=data.pose.pose.position.x
     #roll=euler_tf[0]
     #pitch=euler_tf[1]
     yaw=euler_tf[2]
+    print("Yaw:", yaw)
 
     #Longitude and Latitude
     latitude_follower_2 = data.pose.pose.position.x
@@ -372,7 +397,34 @@ def lateral_control(lat_leader, long_leader, head_leader, head_follower):
     else:
         return 0.0
 
+def lateral_control_new_algorithm():
+    
+    global heading_leader
+    global cross_track_distance
+    global delta_final
+    global speed_follower_2
+    global heading_follower_2
+    global heading_correction
+    global path_heading
+    global lateral_control_time_flag
 
+    k_stanley = 4.0#Proportional constant
+
+    # y_d = longitude_leader - longitude_follower_2
+    # x_d = platoon_distance
+
+    #vf_t = speed_follower_2
+    lat_control_time = time.time()
+    lat_delay = lat_control_time - lateral_control_time_flag
+
+    if(lat_delay >= MIN_TIME_STAMP):
+        lateral_control_time_flag = lat_control_time#Updates the counter
+        heading_correction = heading_follower_2 - path_heading#Calculates heading error between the orientation of car2 and the actual heading of the vehicle
+
+        delta_final = heading_correction + m.atan2(k_stanley*cross_track_distance,speed_follower_2)#Calculates the steering angle desired to perform the curve
+        print("Test",delta_final)
+
+    return delta_final
 
 ##########################
 # LIDAR MEASUREMENTS
@@ -385,6 +437,9 @@ def lidar_meausurements(data):
     global total_distance
     global velocity
     global steering_angle
+    global cross_track_distance
+    global lidar_real_dist
+    global lidar_sum
 
     absurde_value=0
 
@@ -399,38 +454,21 @@ def lidar_meausurements(data):
         if(data.ranges[i]>MAX_DISTANCE):
             data.ranges[i] == MAX_DISTANCE
 
-
-
     #Calculates distance in all FOV 
     total_distance=m.sqrt((lidar_coordinates_x**2)+(lidar_coordinates_y**2))#Calculates distance through hypotenuse
     print("Total distance meausured by LiDAR\n", total_distance)#Distance in meters
     time.sleep(0.1)
-    #print(data.ranges[320])
-
     
+    #lidar_real_dist = data.ranges[360]
+
+    #Create array to store values from a wider range to obtain medium value for distance meausured by LiDAR
+    lidar_sum = data.ranges[340:380]#Copies array to lidar_sum array
+    sum_total = sum(lidar_sum)#Calculates the sum of the array
+
+    lidar_real_dist = sum_total/len(lidar_sum)#Arithmetic average
+    print("Soma lidar",lidar_real_dist)
     
-    #Prints only the front distance of the FOV
-    #print(data.ranges[360])
-
-    # if theta > 179.9:
-    #     theta = 179.9
-
-    # index = len(data.ranges)*theta/angle_range
-    # total_distance = data.ranges[int(index)]
-    # if m.isinf(total_distance) or m.isnan(total_distance):
-    #     return 4.0
-    # print(data.ranges[int(index)])
-
-    #Checks for infinite numbers or something that isn't a number
-    if(m.isinf(total_distance) or m.isnan(total_distance)):
-        return absurde_value
-
-    while True:
-        try:
-            with open('distance_file.txt','w') as distance_file:
-                distance_file.write(str(total_distance))#Writes distance into file
-        except:
-            print("Not able to write to file")
+    #return cross_track_distance
 
 
 # def following_leader():
@@ -443,6 +481,7 @@ def lidar_meausurements(data):
 #     global longitude_follower_2
 #     global heading_follower_2
 #     global mode
+#     global TV_position_vector
 
 #     lost_distance = 0
 #     dist = 0
@@ -452,11 +491,11 @@ def lidar_meausurements(data):
 #     pos = 0
 #     dist_min = 999
 
-#     leader_position_array = np.append(leader_position_array,[[latitude_leader,longitude_leader,speed_leader]],axis=0)
+#     #leader_position_array = np.append(leader_position_array,[[latitude_leader,longitude_leader,speed_leader]],axis=0)
 
-#     for i in range(leader_position_array.shape[0]):
-#         following_lat_diff = leader_position_array[i,0] - latitude_follower_2
-#         following_long_diff = leader_position_array[i,0] - longitude_follower_2
+#     for i in range(TV_position_vector.shape[0]):
+#         following_lat_diff = TV_position_vector[i,0] - latitude_follower_2
+#         following_long_diff = TV_position_vector[i,0] - longitude_follower_2
 
 #         angle_leader_follower = m.atan2(following_long_diff,following_lat_diff)#Calculates the angle between the positions of leader and follower
 
@@ -464,9 +503,9 @@ def lidar_meausurements(data):
 
 #         if(abs(angle_diff) < MINIMUM_ANGLE_FOV):
 #             print(1)
-#             dist = m.sqrt((leader_position_array[i,1] - longitude_follower_2)**2 + (leader_position_array[i,0] - latitude_follower_2)**2)
+#             dist = m.sqrt((TV_position_vector[i,1] - longitude_follower_2)**2 + (TV_position_vector[i,0] - latitude_follower_2)**2)
 #         else:
-#             dist_lost = m.sqrt((leader_position_array[i,1] - longitude_follower_2)**2 + (leader_position_array[i,0] - latitude_follower_2)**2)
+#             dist_lost = m.sqrt((TV_position_vector[i,1] - longitude_follower_2)**2 + (TV_position_vector[i,0] - latitude_follower_2)**2)
 
 #             if dist_lost_min > dist_lost and dist_lost > 0.0:
 #                 pos_lost = i
@@ -476,29 +515,31 @@ def lidar_meausurements(data):
 #         if dist_min > dist and dist > 0.0:
 #             pos = i
 #             dist_min = dist             #else, update dist_min value
-#             mode = NORMAL
+#             mode = NORMAL_MODE
 #         elif dist_min < dist:
-#             mode = NORMAL
+#             mode = NORMAL_MODE
 #             break
 #         elif (i == (TV_position_vector.shape[0] - 1)):
 #             pos = pos_lost
-#             mode = LOST
+#             mode = LOST_POSITION
 
-#     latitude_leader = TV_position_vector[pos,0]                 #update the value of TV_latitude 
-#     longitude_leader = TV_position_vector[pos,1]                #update the value of TV_longitude 
-#     #heading_out = TV_position_vector[pos,2]
-#     speed_leader = TV_position_vector[pos,2]
+#     latitude_out = TV_position_vector[pos,0]                 #update the value of TV_latitude 
+#     longitude_out = TV_position_vector[pos,1]                #update the value of TV_longitude 
+#     heading_out = TV_position_vector[pos,2]
+#     speed_out = TV_position_vector[pos,2]
 #     TV_position_vector = TV_position_vector[pos:,:]     #clean the vector, excluding the old positions
+
+#     return latitude_out, longitude_out, heading_out, speed_out
 
 #####################################################################
 #Compare the latitude and longitude from LiDAR and Gazebo odometry
 #####################################################################
 def compare_meausures():
 
-    global lidar_coordinates_x
-    global lidar_coordinates_y
     global latitude_leader
     global longitude_leader
+    global latitude_leader_compare
+    global longitude_leader_compare
 
     #Calculate difference between meausurements from LiDAR and Gazebo
     latitude_leader_compare = latitude_leader - lidar_coordinates_x
@@ -516,9 +557,7 @@ def compare_meausures():
     
     print("Test:",latitude_leader_compare)
 
-    if(delay >= MIN_TIME_STAMP):
-        with open('lidar.csv','w') as compare_lidar:
-            compare_lidar.write('%f,%f\n' % (latitude_leader,latitude_leader_compare))#Writes distance into file
+    lidar_csv_write()#Calls function to write values in CSV
 
 ##########################################################################
 #Need to add a main function where all the info from cars is processed
@@ -532,6 +571,7 @@ def general_control():      #STILL NEED TO TEEST
     global heading_leader
     global speed_leader
     #global steering_angle
+    global TV_position_vector
 
     #Follower data
     global longitude_follower_2
@@ -539,6 +579,8 @@ def general_control():      #STILL NEED TO TEEST
     global heading_follower_2
     global speed_follower_2
     global steering_angle_car2
+    global orientation_x_car2
+    global orientation_y_car2
 
     #Timers
     global time_iteration_2
@@ -549,12 +591,22 @@ def general_control():      #STILL NEED TO TEEST
     global PID_real_dist
     global platoon_distance
 
+    #Stanley Controller
+    global path_heading
+
     time_now = time.time()
     time_lapse = time_now - time_control_flag
 
+    path_heading = m.atan2(orientation_x_car2,orientation_y_car2)
     #ctrl_msg_car2 = drive_param()
 
     if(time_lapse >= MIN_TIME_STAMP):
+
+        # if (TV_position_vector[0,0]<=0.1 and TV_position_vector[0,1]<=0.1):#cleaning the first position of the vector
+        #     TV_position_vector = np.append(TV_position_vector,[[latitude_leader, longitude_leader, heading_leader, speed_leader]],axis=0)#Numpy vector que armazena posicoes de TV
+        #     TV_position_vector = TV_position_vector[1:,:]#delete the first line with empty values
+        # else:
+        #     TV_position_vector = np.append(TV_position_vector,[[latitude_leader, longitude_leader, heading_leader, speed_leader]],axis=0)#Numpy vector que armazena posicoes de TV
 
         platoon_distance = m.sqrt((latitude_leader - latitude_follower_2)**2 + (longitude_leader - longitude_follower_2)**2)
         print("Distance:", platoon_distance)
@@ -563,10 +615,21 @@ def general_control():      #STILL NEED TO TEEST
         print("Distance error:", platoon_distance_error)
 
         #steering_angle_car2 = lateral_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
-        heading_follower_2 = heading_leader
+        #heading_follower_2 = heading_leader
 
         if(platoon_distance >= MIN_DISTANCE and speed_leader >= MIN_SPEED):
             PID_real_dist = longitudinal_control(platoon_distance_error)
+            #steering_angle_car2 = lateral_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
+            #lateral_control_new_algorithm()
+            steering_angle_car2 = lateral_control_new_algorithm()
+
+            # lat_compare, long_compare, heading_compare, speed_compare = following_leader()
+
+            # speed_leader = (((speed_compare+PID_real_dist)+0.8)/0.4)
+            # speed_follower_2 = speed_leader
+
+            # steering_angle_car2 = lateral_control(lat_compare,long_compare,heading_compare,heading_follower_2)
+            
 
             if(speed_follower_2 < MIN_SPEED):
                 speed_follower_2 = MIN_SPEED
@@ -589,6 +652,7 @@ def general_control():      #STILL NEED TO TEEST
 
     # steering_angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
     csv_file_write()
+    compare_meausures()
 
 def listener():
     print("F1/10 node started")
