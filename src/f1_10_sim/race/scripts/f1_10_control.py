@@ -137,7 +137,7 @@ DEGREE_CONVERSION = 180/(np.pi)
 
 direction_control_time_flag = 0.0
 time_control_flag = 0.0
-MIN_TIME_STAMP = 0.01
+MIN_TIME_STAMP = 0.001
 lateral_control_time_flag = 0.0
 
 ###############
@@ -665,7 +665,7 @@ def general_control():      #STILL NEED TO TEEST
             print("dist:",PID_real_dist)
             print("dist_1:",platoon_distance)
 
-            lat_compare, long_compare, heading_compare, speed_compare = following_leader()
+            lat_compare, long_compare, heading_compare, speed_compare = following_leader()#Obtains position from previoud positions of car1 in order to obtain a correct steering angle
 
             speed_new_val = speed_compare#+PID_real_dist)
             # print("speed compare:",speed_new_val)#Debug
@@ -695,6 +695,13 @@ def general_control():      #STILL NEED TO TEEST
             
     # PID_real_dist = longitudinal_control(platoon_distance_error)
     # print(21)
+
+    ######################################################################################################################
+    #Create a new array to store previous positions of the car1
+    #and then try to equal the position of car2 to the previous position of car1, so they don't have the same heading
+    #and it doesn't turn too early
+    ######################################################################################################################
+
 
     # steering_angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
     msg_follower.velocity = speed_new_val
