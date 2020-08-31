@@ -25,13 +25,13 @@
     <remap from="/joint_states" to="/racecar/joint_states"/>
   </node>
 
-  <arg name="vesc_remap1" value='vesc'/>
+  <arg name="vesc_remap1" value='vesc1'/>
 
   <node pkg="racecar_control" type="servo_commands.py" name="servo_commands_car1" output="screen">
     <remap from="/car1/ackermann_cmd_mux/output" to="/$(arg vesc_remap1)/low_level/ackermann_cmd_mux/output"/>
   </node>
 
- <node name="better_odom" pkg="topic_tools" type="relay" args="/vesc/odom /pf/pose/odom"/>
+ <node name="better_odom" pkg="topic_tools" type="relay" args="/vesc1/odom /pf/pose/odom"/>
 
   <!--node name="message_to_tf_$(arg car_name)" pkg="race" type="message_to_tf_gen.py" args='$(arg car_name)'/-->
 
@@ -59,13 +59,13 @@
     <remap from="/joint_states" to="/racecar/joint_states"/>
   </node>
 
-  <arg name="vesc_remap2" value='vesc'/>
+  <arg name="vesc_remap2" value='vesc2'/>
 
   <node pkg="racecar_control" type="servo_commands.py" name="servo_commands_car2" output="screen">
     <remap from="/car2/ackermann_cmd_mux/output" to="/$(arg vesc_remap2)/low_level/ackermann_cmd_mux/output"/>
   </node>
 
- <node name="better_odom_car2" pkg="topic_tools" type="relay" args="/vesc/odom /pf/pose/odom"/>
+ <node name="better_odom_car2" pkg="topic_tools" type="relay" args="/vesc2/odom /pf/pose/odom"/>
 
   <!--node pkg="race" name="platooning_leader" type="platooning.py" output="screen"/-->
 

@@ -9,16 +9,8 @@
   <arg name="car_name" value="car1"/>
   <!--arg name="car_name2" value="car2"/-->
   <!--arg name="car_name" value="car1"/-->
-  
 
-  <!-- include our robots -->
-  <!--include file="$(find racecar_gazebo)/launch/f1_10_world.launch"/-->
-
-
-  <!--node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-param robot_description -urdf -x 3 -y -12 -z 0.5 -model prius"/-->
-  <!--node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" /-->
   <node pkg="race" name="control_node" type="control.py" output="screen"/>
-  <!--node pkg="race" name="control_node_2" type="control_car2.py" output="screen" args="$(arg car_name2)"/-->
   <node pkg="race" name="sim_connector_node" type="sim_connector.py"/>
   <node pkg="race" name="levine_demo_node" type="levineDemo.py"/>
 </launch>

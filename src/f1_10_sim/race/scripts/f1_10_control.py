@@ -137,7 +137,7 @@ DEGREE_CONVERSION = 180/(np.pi)
 
 direction_control_time_flag = 0.0
 time_control_flag = 0.0
-MIN_TIME_STAMP = 0.001
+MIN_TIME_STAMP = 0.0001
 lateral_control_time_flag = 0.0
 
 ###############
@@ -177,12 +177,12 @@ def car_parameters_leader(msg):
     speed_leader=msg.velocity
     steering_angle=msg.angle
 
-# def car_parameters_car2(msg):
-#     global speed_follower_2
-#     global steering_angle_car2
+def car_parameters_car2(msg):
+    global speed_follower_2
+    global steering_angle_car2
 
-#     speed_follower_2 = msg.velocity
-#     steering_angle_car2 = msg.angle
+    speed_follower_2 = msg.velocity
+    steering_angle_car2 = msg.angle
 
 
 
@@ -305,9 +305,6 @@ def car2_info(data):
     orientation_x_car2 = data.pose.pose.orientation.x
     orientation_y_car2 = data.pose.pose.orientation.y
 
-    # error_long = longitude_leader - longitude_follower_2
-    # print("Test:", error_long)
-
     #Checks for not valid number formats
     try:
         if(m.isnan(yaw)==False):
@@ -318,6 +315,8 @@ def car2_info(data):
     #Converts to degrees
     heading_follower_2= yaw * DEGREE_CONVERSION
     print("Heading 2:",heading_follower_2)
+
+    yaw = 0
 
     general_control()
 
@@ -434,35 +433,6 @@ def lateral_control(lat_leader, long_leader, head_leader, head_follower):
     else:
         return 0.0
 
-# def lateral_control_new_algorithm():
-    
-#     global heading_leader
-#     global cross_track_distance
-#     global delta_final
-#     global speed_follower_2
-#     global heading_follower_2
-#     global heading_correction
-#     global path_heading
-#     global lateral_control_time_flag
-
-#     k_stanley = 4.0#Proportional constant
-
-#     # y_d = longitude_leader - longitude_follower_2
-#     # x_d = platoon_distance
-
-#     #vf_t = speed_follower_2
-#     lat_control_time = time.time()
-#     lat_delay = lat_control_time - lateral_control_time_flag
-
-#     if(lat_delay >= MIN_TIME_STAMP):
-#         lateral_control_time_flag = lat_control_time#Updates the counter
-#         heading_correction = heading_follower_2 - path_heading#Calculates heading error between the orientation of car2 and the actual heading of the vehicle
-
-#         delta_final = heading_correction + m.atan2(k_stanley*cross_track_distance,speed_follower_2)#Calculates the steering angle desired to perform the curve
-#         print("Test",delta_final)
-
-#     return delta_final
-
 ##########################
 # LIDAR MEASUREMENTS
 ##########################
@@ -475,6 +445,7 @@ def lidar_meausurements(data):
     global cross_track_distance
     global lidar_real_dist
     global lidar_sum
+    #global steering_angle
 
     absurde_value=0
 
@@ -486,8 +457,6 @@ def lidar_meausurements(data):
         lidar_coordinates_x=data.ranges[i]*np.cos(angle_index)
         lidar_coordinates_y=data.ranges[i]*np.sin(angle_index)
 
-        if(data.ranges[i]>MAX_DISTANCE):
-            data.ranges[i] == MAX_DISTANCE
 
     #Calculates distance in all FOV 
     total_distance=m.sqrt((lidar_coordinates_x**2)+(lidar_coordinates_y**2))#Calculates distance through hypotenuse
@@ -502,8 +471,12 @@ def lidar_meausurements(data):
 
     lidar_real_dist = sum_total/len(lidar_sum)#Arithmetic average
     #print("Soma lidar",lidar_real_dist)
-    
-    #return cross_track_distance
+
+    #print("Wall dist:", data.ranges[120])
+
+    # if(data.ranges[120]<=0.3 or data.ranges[600]<=0.3):
+    #     steering_angle = 0
+
 
 
 def following_leader():
@@ -617,6 +590,7 @@ def general_control():      #STILL NEED TO TEEST
     global orientation_x_car2
     global orientation_y_car2
     global speed_new_val
+    global follower_position_array
 
     #Timers
     global time_iteration_2
@@ -634,10 +608,10 @@ def general_control():      #STILL NEED TO TEEST
     time_lapse = time_now - time_control_flag
 
     path_heading = m.atan2(orientation_x_car2,orientation_y_car2)
-    #ctrl_msg_car2 = drive_param()
+
+    print("Leader steer:",steering_angle)
 
     pub = rospy.Publisher('drive_parameters/car2', drive_param, queue_size=10)
-
     msg_follower = drive_param()
 
     if(time_lapse >= MIN_TIME_STAMP):
@@ -667,12 +641,14 @@ def general_control():      #STILL NEED TO TEEST
 
             lat_compare, long_compare, heading_compare, speed_compare = following_leader()#Obtains position from previoud positions of car1 in order to obtain a correct steering angle
 
-            speed_new_val = speed_compare#+PID_real_dist)
-            # print("speed compare:",speed_new_val)#Debug
+            speed_new_val = speed_compare + PID_real_dist
             msg_follower.velocity = speed_new_val
 
-            steering_new = lateral_control(lat_compare,long_compare,heading_compare,heading_follower_2)
-            # steering_new = steering_new + steering_angle_car2
+            msg_follower.angle = lateral_control(lat_compare,long_compare,heading_compare,heading_follower_2)
+            msg_follower.angle = 30.00
+            print("Test steer:",msg_follower.angle)
+
+            #msg_follower.angle = steering_new
             
 
             if(speed_new_val < MIN_SPEED):
@@ -683,18 +659,10 @@ def general_control():      #STILL NEED TO TEEST
                 msg_follower.velocity = speed_new_val
         else:
             speed_new_val = 0.0
+            msg_follower.velocity = 0.0
         
         # with open(strftime('compare_pid.csv','w')) as compare_pid:
         #     compare_pid.write('%f,%f\n' % (platoon_distance,platoon_distance_error))#Writes distance into file
-        
-    # platoon_distance = m.sqrt(((longitude_leader - longitude_follower_2)**2) + ((latitude_leader - latitude_follower_2)**2))
-    # platoon_distance_error = platoon_distance - MAX_DISTANCE
-    # print(platoon_distance_error)
-
-    # #if(platoon_distance > MIN_DISTANCE and speed_leader > MIN_SPEED):
-            
-    # PID_real_dist = longitudinal_control(platoon_distance_error)
-    # print(21)
 
     ######################################################################################################################
     #Create a new array to store previous positions of the car1
@@ -702,10 +670,21 @@ def general_control():      #STILL NEED TO TEEST
     #and it doesn't turn too early
     ######################################################################################################################
 
+    # if(follower_position_array[0,0]<= 0.1 and follower_position_array[0,1]<=0.1):
+    #     follower_position_array = np.append(follower_position_array,[[lat_compare, long_compare, heading_compare, speed_compare]],axis=0)
+    #     follower_position_array = follower_position_array[1:,:]#Deletes the first line
+    # else:
+    #     follower_position_array = np.append(follower_position_array,[[lat_compare, long_compare, heading_compare, speed_compare]],axis=0)
+
+    # for i in range(follower_position_array.shape[0]):
+    #     if(follower_position_array[i,1] != follower_position_array[i,2]):
+    #         follower_position_array = follower_position_array[1:,:]#Clears last position read
+    #         follower_position_array[i,3] = steering_new
+
 
     # steering_angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
-    msg_follower.velocity = speed_new_val
-    msg_follower.angle = steering_angle
+    #msg_follower.velocity = speed_new_val
+    #msg_follower.angle = steering_new
     pub.publish(msg_follower)
 
     csv_file_write()
