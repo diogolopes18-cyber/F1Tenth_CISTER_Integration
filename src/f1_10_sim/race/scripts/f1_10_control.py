@@ -117,6 +117,8 @@ total_distance = 0.0
 cross_track_distance = 0.0
 lidar_sum = []
 lidar_real_dist = 0.0
+dist_wall_left = 0.0
+dist_wall_right = 0.0
 
 ###############################
 #SPEED AND DIRECTION CONTROL
@@ -167,6 +169,7 @@ path_heading = 0.0
 #user_directory = expanduser('~/sims_ws')#Defines the path to home directory
 csv_file = open('platoon_test.csv','w')#Opens file in home directory
 lidar_file = open('lidar_comp.csv','w')
+wall_dist_file = open('wall_dist_left.csv','w')
 
 #Atributing to the variable velocity the value of the msg file in order to be used througout the script
 def car_parameters_leader(msg):
@@ -233,6 +236,14 @@ def lidar_csv_write():
     timestamp = time.time()
     timestamp_date = time.ctime(timestamp)
     lidar_file.write('%s,%f,%f,%f\n' % (timestamp_date,lidar_real_dist,latitude_leader_compare, PID_real_dist))#Plots distance to leader to csv
+
+def wall_file_write():
+    global dist_wall_right
+    global dist_wall_left
+
+    timestamp = time.time()
+    timestamp_date = time.ctime(timestamp)
+    wall_dist_file.write('%s,%f,%f\n' % (timestamp_date,dist_wall_right,dist_wall_left))
 
 
 #######################################################
@@ -316,7 +327,7 @@ def car2_info(data):
     heading_follower_2= yaw * DEGREE_CONVERSION
     print("Heading 2:",heading_follower_2)
 
-    yaw = 0
+    #yaw = 0
 
     general_control()
 
@@ -445,6 +456,8 @@ def lidar_meausurements(data):
     global cross_track_distance
     global lidar_real_dist
     global lidar_sum
+    global dist_wall_right
+    global dist_wall_left
     #global steering_angle
 
     absurde_value=0
@@ -461,7 +474,7 @@ def lidar_meausurements(data):
     #Calculates distance in all FOV 
     total_distance=m.sqrt((lidar_coordinates_x**2)+(lidar_coordinates_y**2))#Calculates distance through hypotenuse
     #print("Total distance meausured by LiDAR\n", total_distance)#Distance in meters
-    time.sleep(0.1)
+    #time.sleep(0.1)
     
     #lidar_real_dist = data.ranges[360]
 
@@ -473,6 +486,10 @@ def lidar_meausurements(data):
     #print("Soma lidar",lidar_real_dist)
 
     #print("Wall dist:", data.ranges[120])
+    dist_wall_left = data.ranges[120]#Distance to the left side of the track
+    dist_wall_right = data.ranges[600]#Distance to the right side of the track
+
+    wall_file_write()#Writes distances to wall read by LiDAR into file
 
     # if(data.ranges[120]<=0.3 or data.ranges[600]<=0.3):
     #     steering_angle = 0
@@ -644,11 +661,12 @@ def general_control():      #STILL NEED TO TEEST
             speed_new_val = speed_compare + PID_real_dist
             msg_follower.velocity = speed_new_val
 
-            msg_follower.angle = lateral_control(lat_compare,long_compare,heading_compare,heading_follower_2)
-            msg_follower.angle = 30.00
-            print("Test steer:",msg_follower.angle)
+            steering_new = lateral_control(lat_compare,long_compare,heading_compare,heading_follower_2)
+            msg_follower.angle = steering_new
+            #print("Test steer:",msg_follower.angle)
 
             #msg_follower.angle = steering_new
+            msg_follower.angle = steering_angle
             
 
             if(speed_new_val < MIN_SPEED):
@@ -683,7 +701,7 @@ def general_control():      #STILL NEED TO TEEST
 
 
     # steering_angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
-    #msg_follower.velocity = speed_new_val
+    msg_follower.velocity = speed_new_val
     #msg_follower.angle = steering_new
     pub.publish(msg_follower)
 
