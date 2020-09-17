@@ -1,8 +1,8 @@
-teste:
+#control.yaml should remove the robot namespace, if multiple robots have same configuration
   # Publish all joint states -----------------------------------
   joint_state_controller:
     type: joint_state_controller/JointStateController
-    publish_rate: 50
+    publish_rate: 5
   
 
   # Velocity Controllers ---------------------------------------

@@ -9,7 +9,7 @@ from race.msg import drive_param
 from race.msg import pid_input
 from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import Pose, Twist, Transform, TransformStamped
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, OccupancyGrid, MapMetaData
 from gazebo_msgs.msg import LinkStates
 from geometry_msgs.msg import Quaternion
 import matplotlib.pyplot as plt
@@ -50,9 +50,11 @@ kp_theta = 0.5
 kd_theta = 0.0000
 ki_theta = 0.000
 
-kp_dis = 5.0
+kp_dis = 50
 ki_dis = 0
 kd_dis = 0.005
+
+MAX_INTEGRAL_ERROR = 50
 
 distance_integral = 0.0
 distance_derivative_value = 0.0
@@ -120,7 +122,8 @@ cross_track_distance = 0.0
 lidar_sum = []
 lidar_real_dist = 0.0
 dist_wall_left = 0.0
-dist_wall_right = 0.0
+dist_wall_right_far_side = 0.0
+left_wall_error = 0.0
 
 ###############################
 # SPEED AND DIRECTION CONTROL
@@ -153,17 +156,9 @@ theta_pid_control = 0.0
 theta_integral = 0.0
 theta_derivative_value = 0.0
 MAXIMUM_ANGLE_FOV = 45
-MINIMUM_ANGLE_FOV = 2.5
+MINIMUM_ANGLE_FOV = 1.0
 ANGLE_ADJUST = m.pi/2
-
-#####################
-# STANLEY CONTROLLER
-#####################
-ke_t = 0.0
-vf_t = 0.0
-delta_final = 0.0
-heading_correction = 0.0
-path_heading = 0.0
+FOV_FRONT_ANGLE = m.pi/4
 
 ###############
 # CSV FILE
@@ -246,12 +241,12 @@ def lidar_csv_write():
 
 
 def wall_file_write():
-    global dist_wall_right
+    global dist_wall_right_far_side
     global dist_wall_left
 
     timestamp = time.time()
     timestamp_date = time.ctime(timestamp)
-    wall_dist_file.write('%s,%f,%f\n' % (timestamp_date, dist_wall_right, dist_wall_left))
+    wall_dist_file.write('%s,%f,%f\n' % (timestamp_date, dist_wall_right_far_side, dist_wall_left))
 
 def heading_diff():
     global heading_leader
@@ -281,9 +276,9 @@ def car1_info(data):
     euler_tf = tf.transformations.euler_from_quaternion(quaternion)
 
     yaw_leader = euler_tf[2]
-    print("Yaw leader:", yaw_leader)
+    #print("Yaw leader:", yaw_leader)
     heading_leader = yaw_leader * DEGREE_CONVERSION
-    print("Heading leader:", heading_leader)
+    #print("Heading leader:", heading_leader)
 
     #Latitude and longitude
     latitude_leader = data.pose.pose.position.x
@@ -317,14 +312,14 @@ def car2_info(data):
     # roll=euler_tf[0]
     # pitch=euler_tf[1]
     yaw = euler_tf[2]
-    print("Yaw 2:", yaw)
+    #print("Yaw 2:", yaw)
 
     #Longitude and Latitude
     latitude_follower_2 = data.pose.pose.position.x
     longitude_follower_2 = data.pose.pose.position.y
 
-    print("Follower:", longitude_follower_2)
-    print("Latitude:", latitude_follower_2)
+    #print("Follower:", longitude_follower_2)
+    #print("Latitude:", latitude_follower_2)
     #print("Leader:", longitude_leader)
 
     # Orientation for car2
@@ -340,12 +335,27 @@ def car2_info(data):
 
     # Converts to degrees
     heading_follower_2 = yaw * DEGREE_CONVERSION
-    print("Heading 2:", heading_follower_2)
+    #print("Heading 2:", heading_follower_2)
 
     #yaw = 0
 
     general_control()
 
+def slam_map(data):
+    
+    #slam_msg = OccupancyGrid()
+    nav_pixel_msg = MapMetaData()
+
+    resolution = data.info.resolution
+    #print("Resolution:",resolution)
+    width = nav_pixel_msg.width
+    height = nav_pixel_msg.height
+
+    # for i in range(len(slam_msg.data)):
+    x = width * resolution + resolution/2
+    y = height * resolution + resolution/2
+    # print("X in map:", x)
+    # print("Y in map:", y)
 
 ###########################################################
 # Controls the distance between the follower and leader
@@ -365,7 +375,13 @@ def longitudinal_control(error_distance):
         # Saves current time for next iteration
         direction_control_time_flag = actual_time
 
-        print("Test_1")  # Debug control
+        #print("Test_1")  # Debug control
+
+        #determines the integrator component
+        if (abs(distance_integral) >= MAX_INTEGRAL_ERROR or time_diff>10):
+            dis_integral = 0
+        else:
+            distance_integral = distance_integral + error_distance * time_diff
 
         if(time_diff < 1):
             distance_derivative_value = distance_error_old - error_distance
@@ -425,18 +441,25 @@ def lateral_control(lat_leader, long_leader, head_leader, head_follower):
             theta_SV = 2*m.pi + head_follower  # adding 2pi in order to change for positive
         else:
             theta_SV = head_follower  # if not, keep the angle
+        
+        theta_error = theta_TV - theta_SV
 
         latitude_diff = lat_leader - latitude_follower_2
         longitude_diff = long_leader - longitude_follower_2
         # Calculates distance to leader
         dist_leader = m.sqrt(latitude_diff**2 + longitude_diff**2)
 
-        theta_error = head_leader - head_follower
-        print("Test_2")
+
+        # print("Test_2")
         print("Erro theta:", theta_error)
 
-        print("Lider head:", head_leader)
-        print("Follower head:", head_follower)
+        # print("Lider head:", head_leader)
+        # print("Follower head:", head_follower)
+
+        if (abs(theta_error) > m.pi):					
+            theta_error = head_leader - head_follower
+            if(abs(theta_error))> 0.25:
+                print "Theta_error: ", theta_error
 
         if(abs(theta_error) >= MINIMUM_ANGLE_FOV):
 
@@ -447,7 +470,7 @@ def lateral_control(lat_leader, long_leader, head_leader, head_follower):
 
             if(theta_pid_control >= MAX_STEERING_ANGLE):
                 theta_pid_control = MAX_STEERING_ANGLE
-                print("1234")
+                #print("1234")
             elif(theta_pid_control < -MAX_STEERING_ANGLE):
                 theta_pid_control = -MAX_STEERING_ANGLE
 
@@ -457,7 +480,7 @@ def lateral_control(lat_leader, long_leader, head_leader, head_follower):
             theta_integral = 0
             theta_error_old = 0
 
-        return (-theta_pid_control)
+        return theta_pid_control
 
     else:
         return 0.0
@@ -478,6 +501,7 @@ def lidar_meausurements(data):
     global lidar_sum
     global dist_wall_right
     global dist_wall_left
+    global left_wall_error
     #global steering_angle
 
     absurde_value = 0
@@ -497,8 +521,6 @@ def lidar_meausurements(data):
     # print("Total distance meausured by LiDAR\n", total_distance)#Distance in meters
     # time.sleep(0.1)
 
-    #lidar_real_dist = data.ranges[360]
-
     # Create array to store values from a wider range to obtain medium value for distance meausured by LiDAR
     lidar_sum = data.ranges[340:380]  # Copies array to lidar_sum array
     sum_total = sum(lidar_sum)  # Calculates the sum of the array
@@ -506,17 +528,17 @@ def lidar_meausurements(data):
     lidar_real_dist = sum_total/len(lidar_sum)  # Arithmetic average
     #print("Soma lidar",lidar_real_dist)
 
-    print("I just want to sleep:", data.ranges[360])
-
     #print("Wall dist:", data.ranges[120])
     dist_wall_left = data.ranges[120]  # Distance to the left side of the track
+    dist_wall_left_err = data.ranges[200]
+
+    left_wall_error = dist_wall_left_err - dist_wall_left
+    #print("Wall error", left_wall_error)
     # Distance to the right side of the track
-    dist_wall_right = data.ranges[600]
+    dist_wall_right_far_side = data.ranges[600]
 
     wall_file_write()  # Writes distances to wall read by LiDAR into file
 
-    # if(data.ranges[120]<=0.3 or data.ranges[600]<=0.3):
-    #     steering_angle = 0
 
 
 def following_leader():
@@ -540,25 +562,31 @@ def following_leader():
     dist_min = 999
 
     #leader_position_array = np.append(leader_position_array,[[latitude_leader,longitude_leader,speed_leader]],axis=0)
+    heading_adjust = heading_follower_2 - ANGLE_ADJUST
+
+    if (heading_adjust < -m.pi/4):
+        heading_adjust = heading_adjust + 2 * m.pi
 
     for i in range(TV_position_vector.shape[0]):
         following_lat_diff = TV_position_vector[i, 0] - latitude_follower_2
         following_long_diff = TV_position_vector[i, 0] - longitude_follower_2
 
         # Calculates the angle between the positions of leader and follower
-        angle_leader_follower = m.atan2(
-            following_long_diff, following_lat_diff)
+        angle_leader_follower = m.atan2(following_long_diff, following_lat_diff)
 
         # Difference between follower and the angle between leader and follower
         angle_diff = heading_follower_2 - angle_leader_follower
 
-        if(abs(angle_diff) < MAXIMUM_ANGLE_FOV):
+        if (angle_leader_follower < 0.0 and heading_adjust> m.pi/4):
+            angle_leader_follower = angle_leader_follower + 2 * m.pi
+        
+        diff_theta_heading = heading_adjust - angle_diff
+
+        if(abs(diff_theta_heading) < FOV_FRONT_ANGLE):
             print(1)
-            dist = m.sqrt((TV_position_vector[i, 1] - longitude_follower_2)**2 + (
-                TV_position_vector[i, 0] - latitude_follower_2)**2)
+            dist = m.sqrt((TV_position_vector[i, 1] - longitude_follower_2)**2 + (TV_position_vector[i, 0] - latitude_follower_2)**2)
         else:
-            dist_lost = m.sqrt((TV_position_vector[i, 1] - longitude_follower_2)**2 + (
-                TV_position_vector[i, 0] - latitude_follower_2)**2)
+            dist_lost = m.sqrt((TV_position_vector[i, 1] - longitude_follower_2)**2 + (TV_position_vector[i, 0] - latitude_follower_2)**2)
 
             if dist_lost_min > dist_lost and dist_lost > 0.0:
                 pos_lost = i
@@ -621,7 +649,6 @@ def compare_meausures():
 # Add PID control to this function
 ##########################################################################
 
-
 def general_control():  # STILL NEED TO TEEST
 
     # Leader data
@@ -654,13 +681,14 @@ def general_control():  # STILL NEED TO TEEST
 
     # Stanley Controller
     global path_heading
+    global left_wall_error
 
     time_now = time.time()
     time_lapse = time_now - time_control_flag
 
     path_heading = m.atan2(orientation_x_car2, orientation_y_car2)
 
-    print("Leader steer:", steering_angle)
+    #print("Leader steer:", steering_angle)
 
     pub = rospy.Publisher('drive_parameters/car2', drive_param, queue_size=10)
     msg_follower = drive_param()
@@ -673,10 +701,16 @@ def general_control():  # STILL NEED TO TEEST
         TV_position_vector = np.append(TV_position_vector, [[latitude_leader, longitude_leader, heading_leader, speed_leader]], axis=0)
 
     platoon_distance = m.sqrt((latitude_leader - latitude_follower_2)**2 + (longitude_leader - longitude_follower_2)**2)
-    print("Distance:", platoon_distance)
+    
 
     platoon_distance_error = platoon_distance - MAX_DISTANCE
+    print("------------------------------------")
+    print("Distance:", platoon_distance)
     print("Distance error:", platoon_distance_error)
+    print("Follower: ",latitude_follower_2," ", longitude_follower_2, " ", heading_follower_2)
+
+    # lidar_pid = kp_theta*left_wall_error + kd_theta*left_wall_error
+    # print("LiDAR PID:",lidar_pid)
 
     #steering_angle_car2 = lateral_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
     #heading_follower_2 = heading_leader
@@ -684,18 +718,19 @@ def general_control():  # STILL NEED TO TEEST
     if(platoon_distance >= MIN_DISTANCE and speed_leader >= MIN_SPEED):
         PID_real_dist = longitudinal_control(platoon_distance_error)
 
-        print("dist:", PID_real_dist)
-        print("dist_1:", platoon_distance)
+        #print("dist:", PID_real_dist)
+        #print("dist_1:", platoon_distance)
 
         # Obtains position from previoud positions of car1 in order to obtain a correct steering angle
         lat_compare, long_compare, heading_compare, speed_compare = following_leader()
-
+        print("Leader: ",lat_compare," ", long_compare, " ", heading_compare)
         speed_new_val = speed_compare + PID_real_dist
         msg_follower.velocity = speed_new_val
-        msg_follower.angle = steering_angle
+        #msg_follower.angle = steering_angle
 
-        #msg_follower.angle = lateral_control(lat_compare, long_compare, heading_compare, heading_follower_2)
-        # msg_follower.angle = steering_new
+        msg_follower.angle = lateral_control(lat_compare, long_compare, heading_compare, heading_follower_2)
+        #msg_follower.angle = 10.0
+        #msg_follower.angle = steering_new
         print("Test steer:",msg_follower.angle)
 
         #msg_follower.angle = steering_new
@@ -706,9 +741,16 @@ def general_control():  # STILL NEED TO TEEST
         elif(speed_new_val > MAX_SPEED):
             speed_new_val = MAX_SPEED
             msg_follower.velocity = speed_new_val
+
+        if(msg_follower.angle < -2.5):
+            msg_follower.angle = -2.5
+        elif(speed_new_val > 2.5):
+            msg_follower.angle = 2.5
+
     else:
         speed_new_val = 0.0
         msg_follower.velocity = 0.0
+        #msg_follower.angle = 0.0
     
     # steering_angle = direction_control(latitude_leader,longitude_leader,heading_leader,heading_follower_2)
     #msg_follower.velocity = speed_new_val
@@ -729,6 +771,7 @@ def listener():
     rospy.Subscriber('/scan/car2', LaserScan, lidar_meausurements)
     rospy.Subscriber('/car2/odom', Odometry, car2_info)
     rospy.Subscriber('/car1/odom', Odometry, car1_info)
+    rospy.Subscriber('/map', OccupancyGrid, slam_map)
     rospy.spin()
 
 
