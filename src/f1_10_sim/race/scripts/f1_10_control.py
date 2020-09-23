@@ -458,7 +458,7 @@ def lateral_control(lat_leader, long_leader, head_leader, head_follower):
 
         if (abs(theta_error) > m.pi):					
             theta_error = head_leader - head_follower
-            if(abs(theta_error))> 0.25:
+            if(abs(theta_error)> 0.25):
                 print "Theta_error: ", theta_error
 
         if(abs(theta_error) >= MINIMUM_ANGLE_FOV):
@@ -470,7 +470,6 @@ def lateral_control(lat_leader, long_leader, head_leader, head_follower):
 
             if(theta_pid_control >= MAX_STEERING_ANGLE):
                 theta_pid_control = MAX_STEERING_ANGLE
-                #print("1234")
             elif(theta_pid_control < -MAX_STEERING_ANGLE):
                 theta_pid_control = -MAX_STEERING_ANGLE
 
@@ -729,7 +728,7 @@ def general_control():  # STILL NEED TO TEEST
         #msg_follower.angle = steering_angle
 
         msg_follower.angle = lateral_control(lat_compare, long_compare, heading_compare, heading_follower_2)
-        #msg_follower.angle = 10.0
+        msg_follower.angle = 0.001
         #msg_follower.angle = steering_new
         print("Test steer:",msg_follower.angle)
 

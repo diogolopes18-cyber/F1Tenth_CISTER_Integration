@@ -42,7 +42,7 @@
 <!--====================SPAWN CAR2=====================-->
 
 <group ns="/car2">
-  <rosparam file="$(find racecar_control)/config/racecar_control_copy.yaml" command="load" ns="/car2"/>
+  <rosparam file="$(find racecar_control)/config/racecar_control.yaml" command="load" ns="/car2"/>
   <param name="/car2/robot_description" command="$(find xacro)/xacro '$(find racecar_description)/urdf/racecar_2.xacro'"/>
 
   <arg name="car_name2" value="car2"/>
